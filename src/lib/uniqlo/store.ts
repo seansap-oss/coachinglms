@@ -97,10 +97,16 @@ export const useUniqloStore = create<UniqloStore>()(
       toggleWishlist: (pid)=> set((s)=> ({ wishlist: s.wishlist.includes(pid) ? s.wishlist.filter(x=>x!==pid) : [...s.wishlist, pid]})),
     }),
     {
-      name:'uniqlo-store-v1',
+      name:'planetfashion-store-v2',
       storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any),
       skipHydration: false,
       partialize: (s)=> ({ products:s.products, categories:s.categories, hero:s.hero, ticker:s.ticker, coupons:s.coupons, sections:s.sections, cart:s.cart, orders:s.orders, wishlist:s.wishlist }),
+      version: 2,
+      migrate: (persisted: any, version: number) => {
+        // Force fresh if old version
+        if (version !== 2) return undefined as any;
+        return persisted;
+      },
     }
   )
 );

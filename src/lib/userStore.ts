@@ -130,8 +130,9 @@ export const useUserStore = create<UserStore>()(
       },
     }),
     {
-      name: 'cafe-users',
+      name: 'planetfashion-users-v2',
       storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any),
+      version: 2,
     }
   )
 );
