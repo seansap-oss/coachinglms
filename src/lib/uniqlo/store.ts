@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { UniqloProduct, UniqloCategory, HeroSection, TickerConfig, Coupon, UniqloCartItem, UniqloOrder, UniqloSectionImage } from './types';
 import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, DEFAULT_HERO, DEFAULT_TICKER, DEFAULT_COUPONS, DEFAULT_SECTION_IMAGES } from './data';
 
@@ -98,6 +98,8 @@ export const useUniqloStore = create<UniqloStore>()(
     }),
     {
       name:'uniqlo-store-v1',
+      storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any),
+      skipHydration: false,
       partialize: (s)=> ({ products:s.products, categories:s.categories, hero:s.hero, ticker:s.ticker, coupons:s.coupons, sections:s.sections, cart:s.cart, orders:s.orders, wishlist:s.wishlist }),
     }
   )

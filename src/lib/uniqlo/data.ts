@@ -15,12 +15,13 @@ export const GENDER_TABS = ['WOMEN','MEN','KIDS','BABY'] as const;
 
 function slugify(s:string){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
 
+const FIXED_TS = 1700000000000;
 function mk(p: Omit<UniqloProduct,'slug'|'createdAt'|'updatedAt'>): UniqloProduct {
   return {
     ...p,
     slug: slugify(p.name)+'-'+p.id,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: FIXED_TS,
+    updatedAt: FIXED_TS,
   };
 }
 

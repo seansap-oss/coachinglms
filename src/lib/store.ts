@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { CartItem, MenuItem, CafeSettings, ThemeSettings, ReceiptSettings, Order, DEFAULT_CAFE_SETTINGS, DEFAULT_THEME, DEFAULT_RECEIPT_SETTINGS, DEFAULT_MENU_ITEMS } from './types';
 
 interface CafeStore {
@@ -116,21 +116,7 @@ export const useStore = create<CafeStore>()(
     }),
     {
       name: 'cafe-store',
-      storage: {
-        getItem: (name) => {
-          if (typeof window === 'undefined') return null;
-          const str = localStorage.getItem(name);
-          return str ? JSON.parse(str) : null;
-        },
-        setItem: (name, value) => {
-          if (typeof window === 'undefined') return;
-          localStorage.setItem(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          if (typeof window === 'undefined') return;
-          localStorage.removeItem(name);
-        },
-      },
+      storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any),
     }
   )
 );

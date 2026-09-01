@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface UserProfile {
   username: string;
@@ -131,21 +131,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: 'cafe-users',
-      storage: {
-        getItem: (name) => {
-          if (typeof window === 'undefined') return null;
-          const str = localStorage.getItem(name);
-          return str ? JSON.parse(str) : null;
-        },
-        setItem: (name, value) => {
-          if (typeof window === 'undefined') return;
-          localStorage.setItem(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          if (typeof window === 'undefined') return;
-          localStorage.removeItem(name);
-        },
-      },
+      storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any),
     }
   )
 );

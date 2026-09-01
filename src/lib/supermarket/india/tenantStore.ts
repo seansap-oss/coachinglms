@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { TenantProduct, TenantInventory } from './masterTypes';
 import { MASTER_CATALOGUE } from './masterCatalogue';
 
@@ -192,6 +192,8 @@ export const useTenantStore = create<TenantState>()(
         return ov?.sellingPrice ?? mp?.referenceMrp ?? 0;
       },
     }),
-    { name:'freshbasket-tenant-india', version:1 }
+    { name:'freshbasket-tenant-india', storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any), version:1 }
   )
 );
+
+

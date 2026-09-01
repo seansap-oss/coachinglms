@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { DeliverySettings, Driver, DeliveryJob, DeliveryOffer } from './types';
 
 const DEFAULT_SETTINGS: DeliverySettings = {
@@ -85,7 +85,7 @@ export const useDeliveryStore = create<DeliveryState>()(
         return !!job && job.otp===otp;
       },
     }),
-    { name:'freshbasket-delivery', version:1 }
+    { name:'freshbasket-delivery', storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any), version:1 }
   )
 );
 
@@ -116,3 +116,5 @@ export function calculateDeliveryFee(settings: DeliverySettings, distanceKm:numb
     default: return 40;
   }
 }
+
+

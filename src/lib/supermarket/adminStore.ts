@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SupermarketProduct } from './types';
 import { PRODUCTS as SEED } from './products';
 
@@ -168,6 +168,8 @@ export const useAdminStore = create<AdminState>()(
       approveBatch: (id) => set((s) => ({ batches: s.batches.map((b) => (b.id === id ? { ...b, status: 'Approved' as const } : b)) })),
       rollbackBatch: (id) => set((s) => ({ batches: s.batches.map((b) => (b.id === id ? { ...b, status: 'Rolled Back' as const } : b)) })),
     }),
-    { name: 'freshbasket-admin', version: 2 }
+    { name: 'freshbasket-admin', storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any), version: 2 }
   )
 );
+
+

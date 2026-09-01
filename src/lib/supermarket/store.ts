@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SupermarketCartItem, SupermarketProduct, ShoppingList } from './types';
 
 type Fulfilment = 'Delivery' | 'Pickup' | null;
@@ -130,3 +130,5 @@ export const useSupermarketStore = create<SupermarketState>()(
     }
   )
 );
+
+
