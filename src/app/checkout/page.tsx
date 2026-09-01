@@ -1,430 +1,180 @@
 'use client';
-
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Smartphone, Banknote, Check, QrCode, ArrowRight } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
-import Header from '@/components/Header';
-import { useStore } from '@/lib/store';
+import UniqloHeader from '@/components/uniqlo/Header';
+import Ticker from '@/components/uniqlo/Ticker';
+import UniqloFooter from '@/components/uniqlo/Footer';
+import { useUniqloStore, calcCartTotals } from '@/lib/uniqlo/store';
 import { useUserStore } from '@/lib/userStore';
-import { formatPrice, generateOrderId } from '@/lib/utils';
-import { Order } from '@/lib/types';
-import { useLoyaltyStore } from '@/lib/loyaltyStore';
-import { useWhatsAppStore, sendWhatsAppMessage, formatOrderMessage } from '@/lib/whatsappStore';
 
-export default function CheckoutPage() {
-  const router = useRouter();
-  const cartItems = useStore((state) => state.cartItems);
-  const settings = useStore((state) => state.settings);
-  const addOrder = useStore((state) => state.addOrder);
-  const clearCart = useStore((state) => state.clearCart);
-  const isLoggedIn = useUserStore((state) => state.session?.loggedIn);
-  const username = useUserStore((state) => state.session?.username);
-  const addUserOrder = useUserStore((state) => state.addUserOrder);
-  const loyaltyConfig = useLoyaltyStore((state) => state.config);
-  
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'gpay' | 'cash'>('upi');
-  const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<'select' | 'pay' | 'confirm'>('select');
-  const nowRef = useRef(0);
+export default function CheckoutPage(){
+  const cart=useUniqloStore(s=>s.cart);
+  const coupons=useUniqloStore(s=>s.coupons);
+  const addOrder=useUniqloStore(s=>s.addOrder);
+  const clearCart=useUniqloStore(s=>s.clearCart);
+  const session=useUserStore(s=>s.session);
+  const router=useRouter();
 
-  useEffect(() => {
-    nowRef.current = Date.now();
-    if (cartItems.length === 0) {
-      router.replace('/');
-    }
-  }, [cartItems.length, router]);
+  const [code,setCode]=useState('');
+  const [applied,setApplied]=useState<string|undefined>(undefined);
+  const [couponMsg,setCouponMsg]=useState('');
+  const [payment,setPayment]=useState<'upi'|'gpay'|'card'|'cod'>('upi');
+  const [address,setAddress]=useState('Mariahilfer Str. 50, 1070 Vienna');
+  const [email,setEmail]=useState('');
+  const [upiId,setUpiId]=useState('planetfashion@upi');
+  const [isPaying,setIsPaying]=useState(false);
 
-  const total = cartItems.reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0);
+  const totals = calcCartTotals(cart, coupons, applied);
 
-  const submitOrder = async (status: Order['status'] = 'paid', createdAt: number) => {
-    const order: Order = {
-      id: generateOrderId(),
-      items: cartItems,
-      total,
-      paymentMethod,
-      status,
-      createdAt,
-      orderType,
-      customerName: customerName || undefined,
-      customerPhone: customerPhone || undefined,
-    };
-    
-    addOrder(order);
-    
-    // Save to user profile if logged in
-    if (isLoggedIn && username) {
-      addUserOrder(username, {
-        id: order.id,
-        items: cartItems.map(i => ({
-          name: i.menuItem.name,
-          quantity: i.quantity,
-          price: i.menuItem.price,
-        })),
-        total,
-        paymentMethod,
-        createdAt,
-      });
-    }
-    
-    // Send WhatsApp order confirmation
-    const waSettings = useWhatsAppStore.getState().settings;
-    if (waSettings.enabled && waSettings.orderConfirmation) {
-      const items = cartItems.map(i => `${i.quantity}x ${i.menuItem.name}`).join(', ');
-      const msg = formatOrderMessage(waSettings.templates.orderConfirmation, {
-        name: customerName || 'Customer',
-        id: order.id.slice(-8),
-        items,
-        total: formatPrice(total),
-      });
-      // Send to customer if phone provided
-      if (customerPhone) {
-        sendWhatsAppMessage(customerPhone, msg);
-      }
-      // Send to staff recipients
-      if (waSettings.recipients.length > 0) {
-        waSettings.recipients.forEach(num => sendWhatsAppMessage(num, msg));
-      }
-    }
-    
-    // Add loyalty stamp if phone provided
-    if (customerPhone && loyaltyConfig.enabled) {
-      const { addStamp, getNearMissCustomers } = useLoyaltyStore.getState();
-      const result = addStamp(customerPhone, order.id, total);
-      
-      // Send near-miss notification (1 stamp away from reward)
-      if (result.stamps === loyaltyConfig.stampsRequired - 1 && waSettings.enabled && waSettings.orderConfirmation) {
-        const nearMsg = `☕ You're 1 stamp away from a FREE reward at ${settings.name}! Your next visit earns you: ${loyaltyConfig.rewardDescription}. Don't miss out!`;
-        sendWhatsAppMessage(customerPhone, nearMsg);
-      }
-      
-      // Send reward earned notification
-      if (result.rewardReady && waSettings.enabled && waSettings.orderConfirmation) {
-        const rewardMsg = `🎉 CONGRATULATIONS! You've earned a FREE reward at ${settings.name}! ${loyaltyConfig.rewardDescription}. Show this message to claim your reward on your next visit!`;
-        sendWhatsAppMessage(customerPhone, rewardMsg);
-      }
-    }
-    
-    // Post to API
-    try {
-      await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order),
-      });
-    } catch (error) {
-      console.error('Failed to sync order:', error);
-    }
-    
-    clearCart();
-    router.push('/confirmation');
+  if(cart.length===0) return <div className="min-h-screen bg-white"><UniqloHeader /><Ticker /><div className="max-w-[1420px] mx-auto px-4 py-10 text-center">Cart empty. <Link href="/collection/all" className="underline">Shop PlanetFashion</Link></div><UniqloFooter /></div>;
+
+  const apply=()=>{
+    const c=coupons.find(x=>x.code.toUpperCase()===code.toUpperCase() && x.isActive);
+    if(!c){ setCouponMsg('Invalid code'); return; }
+    const chk=calcCartTotals(cart, coupons, code);
+    if(c.type!=='free_shipping' && chk.discount===0 && !chk.freeShipping){ setCouponMsg('Requirements not met (min basket?)'); return; }
+    setApplied(code.toUpperCase()); setCouponMsg('Applied ✓ — discount will apply at payment');
   };
 
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    
-    if (paymentMethod === 'cash') {
-      // Cash: Order goes to POS as pending payment
-      await submitOrder('pending_payment', nowRef.current);
-    } else if (paymentMethod === 'gpay') {
-      // Open GPay UPI intent
-      const upiUrl = `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.name)}&am=${total}&cu=INR`;
-      window.open(upiUrl, '_blank');
-      // After payment, user confirms
-      setPaymentStep('confirm');
-      setIsProcessing(false);
-      return;
+  const pay=async()=>{
+    if(!session?.loggedIn){ router.push('/login'); return; }
+    if(cart.some(c=> !c.product.available || !c.product.inStock)){ alert('Some items are not available. Remove them.'); return; }
+    setIsPaying(true);
+    // Simulate UPI/GPay intent
+    if(payment==='upi' || payment==='gpay'){
+      // UPI deep link simulation: upi://pay?pa=...&am=...&cu=EUR
+      await new Promise(r=>setTimeout(r, 900));
     } else {
-      // UPI: Show QR code for scanning
-      setPaymentStep('pay');
-      setIsProcessing(false);
-      return;
+      await new Promise(r=>setTimeout(r, 900));
     }
-    setIsProcessing(false);
+    const orderId='PF-'+Date.now().toString(36).toUpperCase();
+    addOrder({
+      id: orderId,
+      orderNumber: orderId,
+      username: session.username,
+      items: [...cart],
+      subtotal: totals.subtotal,
+      discount: totals.discount,
+      shipping: totals.shipping,
+      tax: totals.tax,
+      total: totals.total,
+      couponCode: applied,
+      status: 'paid',
+      paymentMethod: payment as any,
+      shippingAddress: address,
+      createdAt: Date.now(),
+    });
+    try{
+      const userStore = (await import('@/lib/userStore')).useUserStore.getState();
+      userStore.addUserOrder(session.username, {
+        id: orderId,
+        items: cart.map(c=>({ name:c.product.name, quantity:c.quantity, price:c.product.price})),
+        total: totals.total,
+        paymentMethod: payment,
+        createdAt: Date.now(),
+      });
+    }catch{}
+    // bump coupon usage
+    if(applied){
+      const cp=coupons.find(c=>c.code===applied);
+      if(cp) useUniqloStore.getState().updateCoupon(cp.id, { usedCount: cp.usedCount+1 });
+    }
+    clearCart();
+    setIsPaying(false);
+    router.push(`/confirmation?order=${orderId}`);
   };
 
-  const handleUPIConfirm = async () => {
-    setIsProcessing(true);
-    await submitOrder('paid', nowRef.current);
-    setIsProcessing(false);
-  };
-
-  if (cartItems.length === 0) {
-    return null;
-  }
-
-  // UPI QR Payment Step
-  if (paymentStep === 'pay' && paymentMethod === 'upi') {
-    return (
-      <div className="min-h-screen bg-stone-50">
-        <Header title="UPI Payment" showBack />
-        <main className="max-w-md mx-auto px-4 py-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 text-center">
-            <h2 className="text-lg font-semibold text-stone-800 mb-2">Scan QR Code</h2>
-            <p className="text-sm text-stone-500 mb-6">Open any UPI app and scan</p>
-            
-            <div className="bg-white p-4 rounded-xl inline-block border border-stone-200 mb-4">
-              <QRCodeSVG
-                value={`upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(settings.name)}&am=${total}&cu=INR`}
-                size={220}
-                bgColor="#ffffff"
-                fgColor="#000000"
-                level="H"
-                includeMargin={false}
-              />
-            </div>
-            
-            <div className="bg-stone-50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-stone-500">Amount to pay</p>
-              <p className="text-3xl font-bold text-stone-800">{formatPrice(total)}</p>
-              <p className="text-xs text-stone-400 mt-1">UPI ID: {settings.upiId}</p>
-            </div>
-            
-            <div className="flex gap-2 mb-4 justify-center">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png" alt="UPI" className="h-6" />
-              <span className="text-sm text-stone-500">Works with GPay, PhonePe, Paytm, BHIM</span>
-            </div>
-            
-            <button
-              onClick={handleUPIConfirm}
-              disabled={isProcessing}
-              className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-medium text-center transition-colors flex items-center justify-center gap-2"
-            >
-              {isProcessing ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <Check className="w-5 h-5" />
-                  I&apos;ve Paid - Confirm
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={() => setPaymentStep('select')}
-              className="w-full text-stone-500 py-2 mt-2 text-sm hover:text-stone-700"
-            >
-              ← Back to payment options
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // GPay Confirmation Step
-  if (paymentStep === 'confirm' && paymentMethod === 'gpay') {
-    return (
-      <div className="min-h-screen bg-stone-50">
-        <Header title="GPay Payment" showBack />
-        <main className="max-w-md mx-auto px-4 py-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Smartphone className="w-8 h-8 text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-stone-800 mb-2">Complete Payment in GPay</h2>
-            <p className="text-sm text-stone-500 mb-4">
-              You should have been redirected to Google Pay. Complete the payment of <strong>{formatPrice(total)}</strong> there.
-            </p>
-            
-            <div className="bg-stone-50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-stone-500">Payment to</p>
-              <p className="font-medium text-stone-800">{settings.name}</p>
-              <p className="text-xs text-stone-400">{settings.upiId}</p>
-            </div>
-            
-            <button
-              onClick={handleUPIConfirm}
-              disabled={isProcessing}
-              className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-medium text-center transition-colors flex items-center justify-center gap-2"
-            >
-              {isProcessing ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <Check className="w-5 h-5" />
-                  Payment Done - Confirm Order
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={() => setPaymentStep('select')}
-              className="w-full text-stone-500 py-2 mt-2 text-sm hover:text-stone-700"
-            >
-              ← Back to payment options
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('PlanetFashion')}&am=${totals.total.toFixed(2)}&cu=EUR&tn=${encodeURIComponent(applied ? `Order PF discount ${applied}` : 'PlanetFashion Order')}`;
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <Header title="Checkout" showBack />
-      
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* Order Summary */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 mb-6">
-          <h2 className="font-semibold text-stone-800 mb-4">Order Summary</h2>
-          <div className="space-y-3">
-            {cartItems.map((item, index) => (
-              <div key={index} className="flex justify-between items-center">
-                <div className="flex-1">
-                  <span className="text-stone-800">{item.menuItem.name}</span>
-                  <span className="text-stone-400 ml-2">x{item.quantity}</span>
-                  {item.note && (
-                    <p className="text-xs text-orange-500 mt-0.5 italic">&quot;{item.note}&quot;</p>
-                  )}
-                </div>
-                <span className="font-medium text-stone-800">
-                  {formatPrice(item.menuItem.price * item.quantity)}
-                </span>
-              </div>
-            ))}
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <UniqloHeader /><Ticker />
+      <div className="max-w-[1420px] mx-auto px-3 sm:px-4 py-6 grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white border border-neutral-200 p-4">
+            <h3 className="font-black text-sm" style={{ fontFamily: 'var(--font-space-grotesk)' }}>1. SHIPPING ADDRESS {!session?.loggedIn && <Link href="/login" className="ml-2 text-xs underline font-normal">Sign in to checkout</Link>}</h3>
+            <input value={address} onChange={e=>setAddress(e.target.value)} className="mt-3 w-full border border-neutral-300 px-3 py-2.5 text-sm" placeholder="Address" />
+            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email for receipt (optional)" className="mt-2 w-full border border-neutral-300 px-3 py-2.5 text-sm" />
           </div>
-          <div className="mt-4 pt-4 border-t border-stone-100 flex justify-between items-center">
-            <span className="font-semibold text-stone-800">Total</span>
-            <span className="text-xl font-bold text-orange-600">{formatPrice(total)}</span>
-          </div>
-        </div>
 
-        {/* Order Type */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 mb-6">
-          <h2 className="font-semibold text-stone-800 mb-3">Order Type</h2>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { key: 'dine_in' as const, label: 'Dine In', icon: '🍽️' },
-              { key: 'takeaway' as const, label: 'Takeaway', icon: '📦' },
-              { key: 'delivery' as const, label: 'Delivery', icon: '🚚' },
-            ].map(type => (
-              <button
-                key={type.key}
-                onClick={() => setOrderType(type.key)}
-                className={`p-3 rounded-xl border-2 transition-all text-center ${
-                  orderType === type.key
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-stone-200 hover:border-stone-300'
-                }`}
-              >
-                <span className="text-2xl">{type.icon}</span>
-                <p className={`text-sm font-medium mt-1 ${orderType === type.key ? 'text-orange-600' : 'text-stone-600'}`}>
-                  {type.label}
-                </p>
-              </button>
-            ))}
+          <div className="bg-white border border-neutral-200 p-4">
+            <h3 className="font-black text-sm" style={{ fontFamily: 'var(--font-space-grotesk)' }}>2. DISCOUNT CODE</h3>
+            <p className="text-xs text-neutral-500 mt-1">Admin can generate 10% (or any %) sale codes — they apply here instantly.</p>
+            <div className="flex gap-2 mt-3">
+              <input value={code} onChange={e=>setCode(e.target.value)} placeholder="Try WELCOME10, PLANET10, SAVE20" className="flex-1 border border-neutral-300 px-3 py-2 text-sm uppercase font-mono" />
+              <button onClick={apply} className="bg-black text-white px-5 py-2 text-xs font-black tracking-widest hover:bg-neutral-800">APPLY</button>
+              {applied && <button onClick={()=>{setApplied(undefined); setCode(''); setCouponMsg('Removed');}} className="border border-neutral-300 px-3 py-2 text-xs">CLEAR</button>}
+            </div>
+            {couponMsg && <p className={`text-xs mt-2 font-bold ${couponMsg.includes('Applied') ? 'text-green-700' : 'text-red-600'}`}>{couponMsg}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {coupons.filter(c=>c.isActive).slice(0,4).map(c=>(
+                <button key={c.id} onClick={()=>setCode(c.code)} className="text-xs border border-dashed border-neutral-300 px-2 py-1 hover:border-black">{c.code} — {c.type==='percent' ? `${c.value}%` : c.type==='fixed' ? `€${c.value}` : 'Free Ship'}{c.minBasket ? ` • min €${c.minBasket}`:''}</button>
+              ))}
+            </div>
+            <p className="text-[11px] text-neutral-500 mt-2">Generate new codes in <Link href="/admin" className="underline font-bold">Admin → Coupons → Generate Discount Coupon</Link></p>
           </div>
-          
-          <div className="mt-3 space-y-2">
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Your name (optional)"
-              className="w-full px-4 py-2 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder="Phone number for WhatsApp updates (optional)"
-              className="w-full px-4 py-2 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-            {customerPhone && (
-              <p className="text-xs text-green-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                You&apos;ll receive order updates on WhatsApp
-              </p>
+
+          <div className="bg-white border border-neutral-200 p-4">
+            <h3 className="font-black text-sm" style={{ fontFamily: 'var(--font-space-grotesk)' }}>3. PAYMENT GATEWAY — UPI / GPay / Card</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+              <button onClick={()=>setPayment('upi')} className={`p-3 border text-xs font-black flex flex-col items-center gap-1 ${payment==='upi'?'bg-[#e10600] text-white border-[#e10600]':'border-neutral-300 hover:border-black'}`}>
+                <span className="text-base">⬢</span> UPI
+                <span className="text-[10px] font-normal">Instant</span>
+              </button>
+              <button onClick={()=>setPayment('gpay')} className={`p-3 border text-xs font-black flex flex-col items-center gap-1 ${payment==='gpay'?'bg-[#e10600] text-white border-[#e10600]':'border-neutral-300 hover:border-black'}`}>
+                <span className="text-base">G</span> GPay
+                <span className="text-[10px] font-normal">Google Pay</span>
+              </button>
+              <button onClick={()=>setPayment('card')} className={`p-3 border text-xs font-black flex flex-col items-center gap-1 ${payment==='card'?'bg-black text-white border-black':'border-neutral-300 hover:border-black'}`}>
+                <span> CARD</span><span className="text-[10px] font-normal">Visa/MC</span>
+              </button>
+              <button onClick={()=>setPayment('cod')} className={`p-3 border text-xs font-black ${payment==='cod'?'bg-black text-white border-black':'border-neutral-300 hover:border-black'}`}>COD</button>
+            </div>
+
+            {(payment==='upi' || payment==='gpay') && (
+              <div className="mt-4 border border-neutral-200 bg-[#f9fafb] p-3">
+                <p className="text-xs font-bold">UPI ID</p>
+                <div className="flex gap-2 mt-1">
+                  <input value={upiId} onChange={e=>setUpiId(e.target.value)} className="flex-1 border border-neutral-300 px-3 py-2 text-sm font-mono" placeholder="yourname@upi" />
+                  <a href={upiLink} target="_blank" rel="noopener noreferrer" className="bg-[#e10600] text-white px-4 py-2 text-xs font-black">PAY VIA {payment.toUpperCase()}</a>
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-2">Test mode — clicking opens UPI intent `upi://pay?pa={upiId}&am={totals.total} & cu=EUR`. Admin sets default UPI in store; customer can edit at checkout.</p>
+                <div className="mt-3 flex gap-2">
+                  <div className="w-20 h-20 bg-white border border-neutral-200 flex items-center justify-center text-[7px] font-bold text-center leading-none">QR<br/>UPI<br/>GPay</div>
+                  <p className="text-xs text-neutral-600">Scan with any UPI/GPay app — amount auto-filled €{totals.total.toFixed(2)} {applied ? `(with ${applied} −€${totals.discount.toFixed(2)})` : ''}</p>
+                </div>
+              </div>
+            )}
+            {payment==='card' && (
+              <div className="mt-3 space-y-2">
+                <input placeholder="Card number 4242 4242 4242 4242" className="w-full border border-neutral-300 px-3 py-2 text-sm" defaultValue="4242 4242 4242 4242" />
+                <div className="grid grid-cols-2 gap-2"><input placeholder="MM/YY" className="border border-neutral-300 px-3 py-2 text-sm" defaultValue="12/28" /><input placeholder="CVC" className="border border-neutral-300 px-3 py-2 text-sm" defaultValue="123" /></div>
+                <p className="text-xs text-neutral-500">Test mode — no real charge. Gateway connected.</p>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Payment Method */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 mb-6">
-          <h2 className="font-semibold text-stone-800 mb-3">Payment Method</h2>
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => setPaymentMethod('upi')}
-              className={`p-4 rounded-xl border-2 transition-all ${
-                paymentMethod === 'upi'
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-stone-200 hover:border-stone-300'
-              }`}
-            >
-              <QrCode className={`w-6 h-6 mx-auto mb-2 ${paymentMethod === 'upi' ? 'text-orange-500' : 'text-stone-400'}`} />
-              <span className={`text-sm font-medium ${paymentMethod === 'upi' ? 'text-orange-600' : 'text-stone-600'}`}>UPI</span>
-              <p className="text-xs text-stone-400 mt-1">Scan QR</p>
-            </button>
-            
-            <button
-              onClick={() => setPaymentMethod('gpay')}
-              className={`p-4 rounded-xl border-2 transition-all ${
-                paymentMethod === 'gpay'
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-stone-200 hover:border-stone-300'
-              }`}
-            >
-              <Smartphone className={`w-6 h-6 mx-auto mb-2 ${paymentMethod === 'gpay' ? 'text-orange-500' : 'text-stone-400'}`} />
-              <span className={`text-sm font-medium ${paymentMethod === 'gpay' ? 'text-orange-600' : 'text-stone-600'}`}>GPay</span>
-              <p className="text-xs text-stone-400 mt-1">Open App</p>
-            </button>
-            
-            <button
-              onClick={() => setPaymentMethod('cash')}
-              className={`p-4 rounded-xl border-2 transition-all ${
-                paymentMethod === 'cash'
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-stone-200 hover:border-stone-300'
-              }`}
-            >
-              <Banknote className={`w-6 h-6 mx-auto mb-2 ${paymentMethod === 'cash' ? 'text-orange-500' : 'text-stone-400'}`} />
-              <span className={`text-sm font-medium ${paymentMethod === 'cash' ? 'text-orange-600' : 'text-stone-600'}`}>Cash</span>
-              <p className="text-xs text-stone-400 mt-1">At Counter</p>
-            </button>
+        <div className="bg-white border border-neutral-200 p-4 h-fit sticky top-[80px]">
+          <h3 className="font-black" style={{ fontFamily: 'var(--font-space-grotesk)' }}>ORDER SUMMARY</h3>
+          <div className="space-y-1 text-sm mt-3 max-h-48 overflow-auto">
+            {cart.map(i=> <div key={i.product.id+i.size} className="flex justify-between"><span className="truncate pr-2">{i.product.name} x{i.quantity}</span><span>€{(i.product.price*i.quantity).toFixed(2)}</span></div>)}
           </div>
-          
-          {paymentMethod === 'cash' && (
-            <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
-              <p className="text-sm text-amber-700 flex items-center gap-2">
-                <Banknote className="w-4 h-4" />
-                Pay at the counter. Staff will confirm once cash is received.
-              </p>
-            </div>
-          )}
+          <div className="border-t border-neutral-200 mt-3 pt-3 space-y-2 text-sm">
+            <div className="flex justify-between"><span>Subtotal</span><span>€{totals.subtotal.toFixed(2)}</span></div>
+            {totals.discount>0 && <div className="flex justify-between text-green-700 font-bold"><span>Discount {applied}</span><span>−€{totals.discount.toFixed(2)}</span></div>}
+            <div className="flex justify-between"><span>Shipping</span><span>{totals.shipping===0?'FREE':`€${totals.shipping.toFixed(2)}`}</span></div>
+            <div className="flex justify-between"><span>Tax (10%)</span><span>€{totals.tax.toFixed(2)}</span></div>
+            <div className="flex justify-between font-black text-lg border-t border-neutral-200 pt-2" style={{ fontFamily: 'var(--font-space-grotesk)' }}><span>TOTAL</span><span>€{totals.total.toFixed(2)}</span></div>
+            {totals.savings>0 && <p className="text-xs text-[#e10600]">You save €{totals.savings.toFixed(2)} on MRP</p>}
+          </div>
+          <button onClick={pay} disabled={isPaying} className="w-full bg-[#e10600] hover:bg-[#b80500] disabled:opacity-50 text-white py-3.5 text-xs font-black tracking-[0.12em] mt-4" style={{ fontFamily: 'var(--font-space-grotesk)' }}>{isPaying ? 'PROCESSING…' : `PAY €${totals.total.toFixed(2)} VIA ${payment.toUpperCase()}`}</button>
+          {!session?.loggedIn && <p className="text-xs text-red-600 mt-2 text-center font-bold">Please sign in to place order (profiles required).</p>}
+          <p className="text-[11px] text-neutral-500 text-center mt-2">PlanetFashion • All items, prices, coupons & payments are admin-controlled.</p>
         </div>
-
-        {/* Pay Button */}
-        <button
-          onClick={handlePayment}
-          disabled={isProcessing}
-          className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-medium text-center hover:from-orange-600 hover:to-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-        >
-          {isProcessing ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Processing...
-            </>
-          ) : (
-            <>
-              {paymentMethod === 'cash' ? (
-                <>
-                  Place Order - Pay at Counter
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              ) : (
-                <>
-                  Pay {formatPrice(total)}
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </>
-          )}
-        </button>
-      </main>
+      </div>
+      <UniqloFooter />
     </div>
   );
 }

@@ -6,7 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests yet — see tests/\" && exit 0",
+    "test:e2e": "npx playwright test",
+    "db:migrate": "echo \"Run supabase/migrations/*.sql in Supabase SQL editor\"",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "npm run db:migrate && npm run db:seed",
+    "images:generate": "tsx scripts/generate-product-images.ts",
+    "catalogue:india:audit": "tsx scripts/catalogue-india-audit.ts",
+    "verify": "npm run typecheck && npm run lint && npm run build"
   },
   "dependencies": {
     "@vercel/blob": "^2.6.1",

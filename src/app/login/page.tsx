@@ -1,125 +1,39 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogIn } from 'lucide-react';
-import Header from '@/components/Header';
+import UniqloHeader from '@/components/uniqlo/Header';
+import Ticker from '@/components/uniqlo/Ticker';
 import { useUserStore } from '@/lib/userStore';
 
-export default function LoginPage() {
-  const [name, setName] = useState('');
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const signUp = useUserStore((state) => state.signUp);
-  const login = useUserStore((state) => state.login);
-  const session = useUserStore((state) => state.session);
-  const router = useRouter();
-
-  // If already logged in, go to profile
-  if (session?.loggedIn) {
-    router.replace('/profile');
-    return null;
-  }
-
-  const handleSubmit = () => {
-    setError('');
-    setLoading(true);
-
-    if (name.trim().length < 4) {
-      setError('Name must be at least 4 letters');
-      setLoading(false);
-      return;
-    }
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      setError('PIN must be 4 digits');
-      setLoading(false);
-      return;
-    }
-
-    // Try login first
-    const loginResult = login(name.trim(), pin);
-    if (loginResult.success) {
-      router.push('/profile');
-      setLoading(false);
-      return;
-    }
-
-    // If login failed, create new account
-    const signUpResult = signUp(name.trim(), pin);
-    if (signUpResult.success) {
-      router.push('/profile');
-    } else {
-      setError(signUpResult.error || 'Failed');
-    }
+export default function LoginPage(){
+  const [name,setName]=useState(''); const [pin,setPin]=useState(''); const [error,setError]=useState(''); const [loading,setLoading]=useState(false);
+  const signUp=useUserStore(s=>s.signUp); const login=useUserStore(s=>s.login); const session=useUserStore(s=>s.session); const router=useRouter();
+  if(session?.loggedIn){ router.replace('/profile'); return null; }
+  const submit=()=>{
+    setError(''); setLoading(true);
+    if(name.trim().length<4){ setError('Name must be at least 4 letters'); setLoading(false); return; }
+    if(!/^\d{4}$/.test(pin)){ setError('PIN must be 4 digits'); setLoading(false); return; }
+    const lr=login(name.trim(), pin);
+    if(lr.success){ router.push('/profile'); setLoading(false); return; }
+    const sr=signUp(name.trim(), pin);
+    if(sr.success) router.push('/profile'); else setError(sr.error||'Failed');
     setLoading(false);
   };
-
   return (
-    <div className="min-h-screen bg-stone-50">
-      <Header title="Login" showBack />
-      
-      <main className="max-w-md mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <LogIn className="w-8 h-8 text-orange-500" />
-            </div>
-            <h1 className="text-xl font-bold text-stone-800">Quick Login</h1>
-            <p className="text-sm text-stone-500 mt-1">Enter your name and a 4-digit PIN</p>
-          </div>
-
+    <div className="min-h-screen bg-[#f4f4f4]">
+      <UniqloHeader /><Ticker />
+      <div className="max-w-[420px] mx-auto px-4 py-10">
+        <div className="bg-white border border-neutral-200 p-6">
+          <div className="text-center mb-6"><div className="w-12 h-12 bg-[#ff0000] flex items-center justify-center mx-auto"><span className="text-white font-black text-xs">UNI<br/>QLO</span></div><h1 className="font-black mt-3">SIGN IN / REGISTER</h1><p className="text-xs text-neutral-500 mt-1">Name + 4-digit PIN — stored locally (DB sign-in/sign-out). All profiles work.</p></div>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">Your Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-lg"
-                placeholder="Min 4 letters"
-                autoFocus
-                maxLength={30}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">4-Digit PIN</label>
-              <input
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-4 py-3 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-lg text-center tracking-[0.5em] font-mono"
-                placeholder="••••"
-              />
-            </div>
-
-            {error && (
-              <p className="text-red-500 text-sm text-center">{error}</p>
-            )}
-
-            <button
-              onClick={handleSubmit}
-              disabled={!name || !pin || loading}
-              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3.5 rounded-xl font-medium hover:from-orange-600 hover:to-amber-600 transition-all disabled:opacity-50 shadow-lg shadow-orange-500/20"
-            >
-              {loading ? 'Please wait...' : 'Login / Sign Up'}
-            </button>
+            <div><label className="text-xs font-bold">YOUR NAME</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Min 4 letters" className="w-full border border-neutral-300 px-3 py-3 text-sm mt-1" maxLength={30} /></div>
+            <div><label className="text-xs font-bold">4-DIGIT PIN</label><input type="password" inputMode="numeric" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))} placeholder="••••" className="w-full border border-neutral-300 px-3 py-3 text-sm mt-1 text-center tracking-[0.5em] font-mono" /></div>
+            {error && <p className="text-xs text-red-600 text-center">{error}</p>}
+            <button onClick={submit} disabled={!name || !pin || loading} className="w-full bg-black text-white py-3 text-xs font-black tracking-widest disabled:opacity-50">{loading ? 'PLEASE WAIT...' : 'LOGIN / SIGN UP'}</button>
           </div>
         </div>
-
-        <div className="mt-4 bg-stone-100 rounded-xl p-4 text-center">
-          <p className="text-xs text-stone-500">
-            New here? Just enter your name and PIN — account is created automatically.
-          </p>
-          <p className="text-xs text-stone-400 mt-1">
-            Stored on this device only. You stay logged in.
-          </p>
-        </div>
-      </main>
+        <p className="text-xs text-neutral-500 text-center mt-3">Admin can view all profiles in /admin. Logout clears session only.</p>
+      </div>
     </div>
   );
 }

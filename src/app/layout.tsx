@@ -1,25 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  weight: ["300","400","500","600","700"],
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Cafe Delight - Order Online",
-  description: "Order your favorite coffee and food from Cafe Delight. Scan QR code to view menu and place order.",
-  keywords: ["cafe", "coffee", "food", "ordering", "restaurant", "POS", "point of sale"],
+  title: "PlanetFashion — Wear Your Planet | Austria",
+  description: "PlanetFashion — Minimal modern apparel for Women, Men, Kids & Baby. Hero video/image editable, ticker, UPI/GPay gateway, discount coupons, admin, fully responsive PWA ready for iOS/Android.",
+  keywords: ["planetfashion", "fashion", "apparel", "minimal", "austria", "PF"],
+  manifest: "/manifest.json",
+  themeColor: "#e10600",
+  appleWebApp: { capable: true, title: "PlanetFashion", statusBarStyle: "default" },
+  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
   openGraph: {
-    title: "Cafe Delight",
-    description: "Freshly brewed happiness",
+    title: "PlanetFashion — Wear Your Planet",
+    description: "Minimal, modern, timeless everyday clothing. Shop the new collection.",
     type: "website",
   },
 };
@@ -32,10 +36,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-stone-50">
+      <body className="min-h-full flex flex-col bg-white" style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
         <Providers>{children}</Providers>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}`,
+          }}
+        />
       </body>
     </html>
   );

@@ -1,132 +1,97 @@
 'use client';
-
 import Link from 'next/link';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
-import Header from '@/components/Header';
-import { useStore } from '@/lib/store';
-import { formatPrice } from '@/lib/utils';
+import { useState } from 'react';
+import UniqloHeader from '@/components/uniqlo/Header';
+import Ticker from '@/components/uniqlo/Ticker';
+import UniqloFooter from '@/components/uniqlo/Footer';
+import { useUniqloStore, calcCartTotals } from '@/lib/uniqlo/store';
+import { Trash2, Minus, Plus } from 'lucide-react';
 
-export default function CartPage() {
-  const cartItems = useStore((state) => state.cartItems);
-  const updateCartQuantity = useStore((state) => state.updateCartQuantity);
-  const updateCartNote = useStore((state) => state.updateCartNote);
-  const removeFromCart = useStore((state) => state.removeFromCart);
-  const clearCart = useStore((state) => state.clearCart);
+export default function CartPage(){
+  const cart=useUniqloStore(s=>s.cart);
+  const updateQty=useUniqloStore(s=>s.updateQty);
+  const remove=useUniqloStore(s=>s.removeFromCart);
+  const clear=useUniqloStore(s=>s.clearCart);
+  const coupons=useUniqloStore(s=>s.coupons);
+  const [code,setCode]=useState('');
+  const [applied,setApplied]=useState<string|undefined>(undefined);
+  const [msg,setMsg]=useState('');
 
-  const total = cartItems.reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0);
+  const totals = calcCartTotals(cart, coupons, applied);
 
-  if (cartItems.length === 0) {
-    return (
-      <div className="min-h-screen bg-stone-50">
-        <Header title="Cart" showBack />
-        <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <ShoppingBag className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-stone-800 mb-2">Your cart is empty</h2>
-          <p className="text-stone-500 mb-6">Add some delicious items from the menu</p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 bg-stone-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors"
-          >
-            Browse Menu
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-    );
+  const apply=()=>{
+    const found = coupons.find(c=> c.code.toUpperCase()===code.toUpperCase() && c.isActive);
+    if(!found){ setMsg('Invalid coupon — generate in Admin → Coupons'); return; }
+    const chk = calcCartTotals(cart, coupons, code);
+    if(found.type!=='free_shipping' && chk.discount===0 && !chk.freeShipping){ setMsg('Requirements not met (min basket?)'); return; }
+    setApplied(code.toUpperCase()); setMsg('Coupon applied: '+code.toUpperCase()+' — see checkout to pay via UPI/GPay');
+  };
+
+  if(cart.length===0){
+    return <div className="min-h-screen bg-white"><UniqloHeader /><Ticker /><div className="max-w-[1420px] mx-auto px-4 py-16 text-center"><p className="text-xl font-black" style={{ fontFamily: 'var(--font-space-grotesk)' }}>YOUR CART IS EMPTY</p><p className="text-sm text-neutral-500 mt-2">PlanetFashion — add favorites, pay with UPI / GPay / Card.</p><Link href="/collection/all" className="inline-block mt-6 bg-[#e10600] text-white px-8 py-3 text-xs font-black">CONTINUE SHOPPING</Link></div><UniqloFooter /></div>;
   }
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <Header title="Cart" showBack />
-      
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-6">
-          <p className="text-stone-600">{cartItems.length} item(s) in cart</p>
-          <button
-            onClick={clearCart}
-            className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors"
-          >
-            Clear Cart
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {cartItems.map((item, index) => (
-            <div key={index} className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100">
-              <div className="flex gap-4">
-                <img
-                  src={item.menuItem.image}
-                  alt={item.menuItem.name}
-                  className="w-20 h-20 object-cover rounded-xl"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400';
-                  }}
-                />
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-semibold text-stone-800">{item.menuItem.name}</h3>
-                    <button
-                      onClick={() => removeFromCart(index)}
-                      className="p-1 text-stone-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-stone-500 mb-2">{item.menuItem.description}</p>
-                  
-                  {/* Quantity Controls */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => updateCartQuantity(index, item.quantity - 1)}
-                        className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center hover:bg-stone-200 transition-colors"
-                      >
-                        <Minus className="w-4 h-4 text-stone-600" />
-                      </button>
-                      <span className="font-medium text-stone-800 w-8 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => updateCartQuantity(index, item.quantity + 1)}
-                        className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center hover:bg-stone-200 transition-colors"
-                      >
-                        <Plus className="w-4 h-4 text-stone-600" />
-                      </button>
+    <div className="min-h-screen bg-[#f8f7f5]">
+      <UniqloHeader /><Ticker />
+      <div className="max-w-[1420px] mx-auto px-3 sm:px-4 py-6 grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div className="flex justify-between items-center mb-3"><h1 className="font-black" style={{ fontFamily: 'var(--font-space-grotesk)' }}>SHOPPING CART ({cart.length}) • PlanetFashion</h1><button onClick={clear} className="text-xs underline">Clear all</button></div>
+          <div className="space-y-3">
+            {cart.map(item=>(
+              <div key={item.product.id+item.size+item.color} className="bg-white border border-neutral-200 p-3 flex gap-3">
+                <img src={item.product.images[0]} alt={item.product.name} className="w-24 h-32 object-cover bg-neutral-50 border border-neutral-100" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between">
+                    <div>
+                      <p className="text-xs text-neutral-500">{item.product.gender} • PF</p>
+                      <Link href={`/product/${item.product.id}`} className="font-bold text-sm leading-tight hover:underline">{item.product.name}</Link>
+                      <p className="text-xs text-neutral-500 mt-1">Size: {item.size} • Color: {item.color}</p>
+                      {!item.product.available && <span className="inline-block mt-1 bg-[#e10600] text-white text-[10px] px-2 py-0.5 font-bold">NOT AVAILABLE</span>}
                     </div>
-                    <span className="font-bold text-orange-600">
-                      {formatPrice(item.menuItem.price * item.quantity)}
-                    </span>
+                    <button onClick={()=>remove(item.product.id,item.size,item.color)} className="p-1 text-neutral-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center border border-neutral-300">
+                      <button onClick={()=>updateQty(item.product.id, item.quantity-1, item.size, item.color)} className="w-8 h-8 flex items-center justify-center"><Minus className="w-3 h-3" /></button>
+                      <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+                      <button onClick={()=>updateQty(item.product.id, item.quantity+1, item.size, item.color)} className="w-8 h-8 flex items-center justify-center"><Plus className="w-3 h-3" /></button>
+                    </div>
+                    <span className="font-black">€{(item.product.price*item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
-              
-              {/* Note Input */}
-              <div className="mt-3 pt-3 border-t border-stone-100">
-                <input
-                  type="text"
-                  placeholder="Add a note (e.g., no onions, extra sugar)"
-                  value={item.note}
-                  onChange={(e) => updateCartNote(index, e.target.value)}
-                  className="w-full text-sm px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* Total and Checkout */}
-        <div className="mt-6 bg-white rounded-2xl p-4 shadow-sm border border-stone-100">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-stone-600">Total</span>
-            <span className="text-xl font-bold text-stone-800">{formatPrice(total)}</span>
+        <div className="bg-white border border-neutral-200 p-4 h-fit sticky top-[80px]">
+          <h3 className="font-black text-sm" style={{ fontFamily: 'var(--font-space-grotesk)' }}>ORDER SUMMARY</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-neutral-600">Subtotal</span><span>€{totals.subtotal.toFixed(2)}</span></div>
+            {totals.savings>0 && <div className="flex justify-between text-[#e10600]"><span>You save</span><span>−€{totals.savings.toFixed(2)}</span></div>}
+            {totals.discount>0 && <div className="flex justify-between text-green-700 font-bold"><span>Coupon ({applied})</span><span>−€{totals.discount.toFixed(2)}</span></div>}
+            <div className="flex justify-between"><span className="text-neutral-600">Shipping</span><span>{totals.shipping===0 ? 'FREE' : `€${totals.shipping.toFixed(2)}`}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-600">Tax (10%)</span><span>€{totals.tax.toFixed(2)}</span></div>
+            <div className="flex gap-2 py-2">
+              <input value={code} onChange={e=>setCode(e.target.value)} placeholder="Discount code" className="flex-1 border border-neutral-300 px-3 py-2 text-sm uppercase font-mono" />
+              <button onClick={apply} className="bg-black text-white px-4 py-2 text-xs font-black">APPLY</button>
+            </div>
+            {msg && <p className={`text-xs font-bold ${msg.includes('applied') ? 'text-green-600' : 'text-red-600'}`}>{msg}</p>}
+            <p className="text-xs text-neutral-500">Generate 10% codes in <Link href="/admin" className="underline font-bold">Admin → Coupons</Link> • Then pay via UPI / GPay at checkout.</p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {coupons.filter(c=>c.isActive).slice(0,4).map(c=>(
+                <button key={c.id} onClick={()=>setCode(c.code)} className="text-[11px] border border-dashed px-2 py-1 hover:border-black">{c.code}</button>
+              ))}
+            </div>
+            <div className="flex justify-between font-black text-lg border-t border-neutral-200 pt-2" style={{ fontFamily: 'var(--font-space-grotesk)' }}><span>TOTAL</span><span>€{totals.total.toFixed(2)}</span></div>
           </div>
-          <Link
-            href="/checkout"
-            className="block w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 rounded-xl font-medium text-center hover:from-orange-600 hover:to-amber-600 transition-all"
-          >
-            Proceed to Checkout
-          </Link>
+          <Link href="/checkout" className="block w-full bg-[#e10600] hover:bg-[#b80500] text-white text-center py-3.5 text-xs font-black tracking-[0.12em] mt-4" style={{ fontFamily: 'var(--font-space-grotesk)' }}>PROCEED TO CHECKOUT • UPI / GPay</Link>
+          <Link href="/collection/all" className="block text-center text-xs underline mt-2">Continue shopping</Link>
+          <p className="text-[11px] text-neutral-500 mt-3 text-center">PlanetFashion • Pay with UPI • GPay • Card</p>
         </div>
-      </main>
+      </div>
+      <UniqloFooter />
     </div>
   );
 }
