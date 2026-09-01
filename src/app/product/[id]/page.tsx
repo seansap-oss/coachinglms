@@ -1,6 +1,6 @@
 'use client';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import UniqloHeader from '@/components/uniqlo/Header';
 import Ticker from '@/components/uniqlo/Ticker';
@@ -10,7 +10,8 @@ import { Heart, Truck, RefreshCw } from 'lucide-react';
 
 export default function ProductPage(){
   const params=useParams(); const id=params.id as string;
-  const product = useUniqloStore(s=>s.products.find(p=>p.id===id));
+  const products = useUniqloStore(s=>s.products);
+  const product = useMemo(() => products.find(p=>p.id===id), [products, id]);
   const addToCart = useUniqloStore(s=>s.addToCart);
   const wishlist = useUniqloStore(s=>s.wishlist);
   const toggleWishlist=useUniqloStore(s=>s.toggleWishlist);

@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import UniqloHeader from '@/components/uniqlo/Header';
 import Ticker from '@/components/uniqlo/Ticker';
 import Hero from '@/components/uniqlo/Hero';
@@ -9,7 +10,8 @@ import { useUniqloStore } from '@/lib/uniqlo/store';
 
 export default function HomePage(){
   const products = useUniqloStore(s=>s.products);
-  const sections = useUniqloStore(s=>s.sections.filter(x=>x.isActive).sort((a,b)=>a.sortOrder-b.sortOrder));
+  const sectionsRaw = useUniqloStore(s=>s.sections);
+  const sections = useMemo(() => sectionsRaw.filter(x=>x.isActive).sort((a,b)=>a.sortOrder-b.sortOrder), [sectionsRaw]);
   const newArrivals = products.filter(p=>p.isNew).slice(0,8);
   const featured = products.filter(p=>p.isFeatured).slice(0,8);
   const sale = products.filter(p=> p.compareAtPrice && p.compareAtPrice>p.price).slice(0,8);

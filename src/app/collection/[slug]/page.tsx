@@ -11,6 +11,7 @@ export default function CollectionPage(){
   const params=useParams(); const slug=(params.slug as string) || 'all';
   const sp=useSearchParams(); const q=sp.get('q')?.toLowerCase() || '';
   const products=useUniqloStore(s=>s.products);
+  const categories=useUniqloStore(s=>s.categories);
   const [sort,setSort]=useState('featured');
   const [onlyAvailable,setOnlyAvailable]=useState(false);
 
@@ -22,7 +23,7 @@ export default function CollectionPage(){
       } else {
         // category slug
         list=list.filter(p=> {
-          const catSlug = useUniqloStore.getState().categories.find(c=>c.id===p.categoryId)?.slug;
+          const catSlug = categories.find(c=>c.id===p.categoryId)?.slug;
           return catSlug===slug;
         });
       }
@@ -33,7 +34,7 @@ export default function CollectionPage(){
     if(sort==='price-high') list.sort((a,b)=>b.price-a.price);
     if(sort==='new') list.sort((a,b)=> Number(b.isNew?1:0)-Number(a.isNew?1:0));
     return list;
-  },[products,slug,q,sort,onlyAvailable]);
+  },[products,categories,slug,q,sort,onlyAvailable]);
 
   const title = slug==='all' ? 'ALL PRODUCTS' : slug.toUpperCase().replace(/-/g,' ');
 
