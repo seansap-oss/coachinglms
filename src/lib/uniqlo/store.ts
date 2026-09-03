@@ -128,6 +128,51 @@ export const useUniqloStore = create<UniqloStore>()(
   )
 );
 
+// Server sync for live multi-browser (incognito) - PlanetFashion live sync
+if (typeof window !== 'undefined') {
+  // Fetch from server on load to sync incognito / new browsers
+  fetch('/api/planetfashion').then(r=>r.json()).then(data=>{
+    if(data && (data.hero || data.heroLayers || data.ticker || data.sections)) {
+      const toSet: any = {};
+      if(data.hero) toSet.hero = data.hero;
+      if(data.heroLayers && Array.isArray(data.heroLayers) && data.heroLayers.length>0) toSet.heroLayers = data.heroLayers;
+      if(data.ticker) toSet.ticker = data.ticker;
+      if(data.sections) toSet.sections = data.sections;
+      if(data.products) toSet.products = data.products;
+      if(data.categories) toSet.categories = data.categories;
+      if(data.coupons) toSet.coupons = data.coupons;
+      if(Object.keys(toSet).length>0){
+        // Prevent POST loop
+        (useUniqloStore as any)._isSyncing = true;
+        useUniqloStore.setState(toSet);
+        setTimeout(()=>{ (useUniqloStore as any)._isSyncing = false; }, 1000);
+      }
+    }
+  }).catch(()=>{});
+
+  let syncTimeout: any;
+  useUniqloStore.subscribe((state)=>{
+    if((useUniqloStore as any)._isSyncing) return;
+    clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(async ()=>{
+      const { hero, heroLayers, ticker, sections, products, categories, coupons } = state as any;
+      try{
+        // Don't POST if heroLayers contains huge base64 (>3MB) - warn but still try
+        const payload = { hero, heroLayers, ticker, sections, products, categories, coupons };
+        const json = JSON.stringify(payload);
+        if(json.length > 4_000_000){
+          console.warn('PlanetFashion sync: payload large due to base64 video, consider using URL');
+        }
+        await fetch('/api/planetfashion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: json,
+        });
+      }catch{}
+    }, 700);
+  });
+}
+
 export function calcCartTotals(cart: UniqloCartItem[], coupons: Coupon[], code?: string){
   const subtotal = cart.reduce((a,c)=> a + c.product.price * c.quantity, 0);
   let discount=0; let shipping = subtotal>0 ? 7.99 : 0;
