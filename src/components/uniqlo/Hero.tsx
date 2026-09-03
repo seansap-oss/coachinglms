@@ -7,19 +7,18 @@ export default function Hero(){
   const hero = useUniqloStore(s=>s.hero);
   const heroLayers = useUniqloStore(s=>s.heroLayers);
   const overlay = hero.overlayOpacity ?? 0.3;
-  // Build playlist: enabled layers sorted, fallback to single hero
   const layers = (heroLayers && heroLayers.length>0 ? heroLayers.filter(l=>l.enabled).sort((a,b)=>a.sortOrder-b.sortOrder) : []).length>0
     ? heroLayers.filter(l=>l.enabled).sort((a,b)=>a.sortOrder-b.sortOrder)
     : (hero.isActive ? [{ id: hero.id, type: hero.type, src: hero.src, poster: hero.poster, duration: 5, enabled:true, sortOrder:1 } as any] : []);
 
   const [idx, setIdx] = useState(0);
   const timerRef = useRef<any>(null);
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const cur = layers[idx % layers.length];
 
-  // Reset idx if layers length changes
   useEffect(()=>{ if(idx >= layers.length) setIdx(0); }, [layers.length, idx]);
 
-  // Auto-advance for images (and video with duration override)
+  // Auto-advance for images and video with duration override
   useEffect(()=>{
     if(!cur || layers.length<=1) return;
     if(cur.type==='image'){
@@ -27,42 +26,72 @@ export default function Hero(){
       timerRef.current = setTimeout(()=> setIdx(i=> (i+1)%layers.length), d);
       return ()=> clearTimeout(timerRef.current);
     }
-    // for video with duration override
     if(cur.type==='video' && cur.duration && cur.duration>0){
       timerRef.current = setTimeout(()=> setIdx(i=> (i+1)%layers.length), cur.duration*1000);
       return ()=> clearTimeout(timerRef.current);
     }
-    // otherwise rely on onEnded
   }, [cur, layers.length, idx]);
+
+  // Play current video when idx changes
+  useEffect(()=>{
+    if(!cur || cur.type!=='video') return;
+    const vid = videoRefs.current[cur.id];
+    if(vid){
+      vid.currentTime = 0;
+      const p = vid.play();
+      if(p && typeof (p as any).catch === 'function') (p as any).catch(()=>{});
+    }
+  }, [idx, cur]);
+
+  // Pause other videos
+  useEffect(()=>{
+    Object.entries(videoRefs.current).forEach(([id, v])=>{
+      if(!v) return;
+      if(id !== cur?.id) { try{ v.pause(); }catch{} }
+    });
+  }, [idx, cur?.id]);
 
   if(!hero.isActive || layers.length===0) return null;
 
   const handleVideoEnded = () => {
     if(layers.length>1) setIdx(i=> (i+1)%layers.length);
   };
+  const handleVideoError = () => {
+    console.warn('Hero video failed to load, skipping', cur?.src?.slice(0,60));
+    if(layers.length>1) setTimeout(()=> setIdx(i=> (i+1)%layers.length), 1200);
+  };
 
   return (
     <section className="relative w-full overflow-hidden bg-neutral-100">
-      {/* Media layers - only current visible */}
-      <div className="w-full h-[58vh] sm:h-[64vh] lg:h-[72vh] relative">
+      <div className="w-full h-[58vh] sm:h-[64vh] lg:h-[72vh] relative bg-black">
         {layers.map((layer, i)=>(
           <div key={layer.id} className={`absolute inset-0 transition-opacity duration-700 ${i===idx ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             {layer.type==='video' ? (
               <video
+                ref={el=>{ videoRefs.current[layer.id]=el; }}
                 src={layer.src}
                 poster={layer.poster}
-                autoPlay={i===idx}
                 muted
                 playsInline
+                preload="metadata"
                 loop={false}
                 onEnded={handleVideoEnded}
+                onError={handleVideoError}
                 className="w-full h-full object-cover"
+                controls={false}
               />
             ) : (
-              <img src={layer.src} alt={hero.title} className="w-full h-full object-cover" />
+              <img
+                src={layer.src}
+                alt={hero.title}
+                className="w-full h-full object-cover"
+                onError={(e)=>{ (e.target as HTMLImageElement).style.display='none'; }}
+              />
             )}
           </div>
         ))}
+        {/* Fallback if no layer */}
+        {layers.length===0 && <div className="w-full h-full bg-neutral-200" />}
       </div>
 
       <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlay})`}} />

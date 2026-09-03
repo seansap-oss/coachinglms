@@ -59,7 +59,7 @@ export const DEFAULT_HERO: HeroSection = {
 
 export const DEFAULT_HERO_LAYERS: HeroLayer[] = [
   { id:'hl_1', type:'image', src:'https://images.unsplash.com/photo-1445205170230-053b83016050?w=1600', duration:5, enabled:true, sortOrder:1 },
-  { id:'hl_2', type:'video', src:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', poster:'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1600', duration:0, enabled:true, sortOrder:2 },
+  { id:'hl_2', type:'video', src:'https://www.w3schools.com/html/mov_bbb.mp4', poster:'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1600', duration:0, enabled:true, sortOrder:2 },
   { id:'hl_3', type:'image', src:'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1600', duration:5, enabled:true, sortOrder:3 },
 ];
 

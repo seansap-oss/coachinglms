@@ -128,12 +128,14 @@ export default function AdminPage(){
                       <label className="flex items-center gap-1 text-[10px] font-bold"><input type="checkbox" checked={layer.enabled} onChange={e=> store.updateHeroLayer(layer.id, { enabled: e.target.checked })} /> On</label>
                     </div>
 
-                    <div className="w-28 h-20 bg-white border overflow-hidden flex-shrink-0">
+                    <div className="w-28 h-20 bg-white border overflow-hidden flex-shrink-0 relative group">
                       {layer.type==='video' ? (
-                        <video src={layer.src} poster={layer.poster} className="w-full h-full object-cover" muted playsInline />
+                        <video src={layer.src} poster={layer.poster} className="w-full h-full object-cover" muted playsInline controls onError={(e)=>{ console.warn('video load failed', layer.src.slice(0,80)); }} />
                       ) : (
-                        <img src={layer.src} alt="" className="w-full h-full object-cover" />
+                        <img src={layer.src} alt="" className="w-full h-full object-cover" onError={(e)=>{ (e.target as HTMLImageElement).style.display='none'; }} />
                       )}
+                      <span className="absolute bottom-0 left-0 bg-black/70 text-white text-[8px] px-1">{layer.type==='video' ? 'MP4' : 'IMG'}</span>
+                      <span className="absolute top-0 right-0 bg-[#e10600] text-white text-[7px] px-1 hidden group-hover:block">▶ hover to preview</span>
                     </div>
 
                     <div className="flex-1 space-y-2 min-w-0">
@@ -157,16 +159,31 @@ export default function AdminPage(){
                         </div>
                       </div>
 
-                      <input value={layer.src} onChange={e=> store.updateHeroLayer(layer.id, { src: e.target.value })} placeholder={layer.type==='video' ? "MP4 URL or https://.../video.mp4" : "Image URL https://..."} className="w-full border border-neutral-300 px-2 py-1.5 text-xs" />
+                      <input value={layer.src} onChange={e=> store.updateHeroLayer(layer.id, { src: e.target.value })} placeholder={layer.type==='video' ? "MP4 URL e.g. https://.../video.mp4 or data:video/..." : "Image URL https://..."} className="w-full border border-neutral-300 px-2 py-1.5 text-xs" />
                       <div className="flex gap-2">
                         <label className="flex-1">
-                          <span className="text-[10px] font-bold text-neutral-500">Upload {layer.type==='video' ? 'MP4' : 'Image'} (small MP4 &lt;5MB)</span>
+                          <span className="text-[10px] font-bold text-neutral-500">Upload {layer.type==='video' ? 'MP4' : 'Image'} {layer.type==='video' ? '(MP4 <5MB or use URL)' : ''}</span>
                           <input type="file" accept={layer.type==='video' ? 'video/mp4,video/*' : 'image/*'} onChange={async e=>{
                             const f=e.target.files?.[0]; if(!f) return;
-                            if(f.size>8*1024*1024) alert('File large (>8MB) may be slow — consider URL');
-                            const data=await toBase64(f);
-                            store.updateHeroLayer(layer.id, { src: data });
-                            showToast('Uploaded — will play on live site');
+                            const isVideo = layer.type==='video';
+                            if(isVideo && f.size>4*1024*1024){
+                              if(!confirm(`Video is ${(f.size/1024/1024).toFixed(1)}MB (>4MB) — may exceed storage. Use URL instead for best performance. Continue with upload?`)) { e.target.value=''; return; }
+                            }
+                            if(!isVideo && f.size>2*1024*1024){
+                              if(!confirm(`Image is ${(f.size/1024/1024).toFixed(1)}MB — large. Continue?`)) { e.target.value=''; return; }
+                            }
+                            try{
+                              const data=await toBase64(f);
+                              try{
+                                store.updateHeroLayer(layer.id, { src: data });
+                                showToast('Uploaded — will play on live site. If gray, try URL instead (storage limit).');
+                              }catch(err){
+                                showToast('Storage full — use URL for large MP4 (localStorage limit)');
+                              }
+                            }catch{
+                              showToast('Upload failed — try URL');
+                            }
+                            e.target.value='';
                           }} className="w-full border border-neutral-300 p-1 text-xs bg-white" />
                         </label>
                         {layer.type==='video' && (
