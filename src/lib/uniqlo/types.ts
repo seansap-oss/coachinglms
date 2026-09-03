@@ -46,6 +46,16 @@ export type HeroSection = {
   isActive: boolean;
 };
 
+export type HeroLayer = {
+  id: string;
+  type: 'image' | 'video';
+  src: string;
+  poster?: string;
+  duration?: number; // seconds to show (image) or override (video, 0 = use video duration)
+  enabled: boolean;
+  sortOrder: number;
+};
+
 export type TickerConfig = {
   enabled: boolean;
   text: string;

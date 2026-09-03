@@ -1,18 +1,70 @@
 'use client';
 import Link from 'next/link';
+import { useState, useEffect, useRef } from 'react';
 import { useUniqloStore } from '@/lib/uniqlo/store';
 
 export default function Hero(){
   const hero = useUniqloStore(s=>s.hero);
-  if(!hero.isActive) return null;
+  const heroLayers = useUniqloStore(s=>s.heroLayers);
   const overlay = hero.overlayOpacity ?? 0.3;
+  // Build playlist: enabled layers sorted, fallback to single hero
+  const layers = (heroLayers && heroLayers.length>0 ? heroLayers.filter(l=>l.enabled).sort((a,b)=>a.sortOrder-b.sortOrder) : []).length>0
+    ? heroLayers.filter(l=>l.enabled).sort((a,b)=>a.sortOrder-b.sortOrder)
+    : (hero.isActive ? [{ id: hero.id, type: hero.type, src: hero.src, poster: hero.poster, duration: 5, enabled:true, sortOrder:1 } as any] : []);
+
+  const [idx, setIdx] = useState(0);
+  const timerRef = useRef<any>(null);
+  const cur = layers[idx % layers.length];
+
+  // Reset idx if layers length changes
+  useEffect(()=>{ if(idx >= layers.length) setIdx(0); }, [layers.length, idx]);
+
+  // Auto-advance for images (and video with duration override)
+  useEffect(()=>{
+    if(!cur || layers.length<=1) return;
+    if(cur.type==='image'){
+      const d = (cur.duration && cur.duration>0 ? cur.duration : 5) * 1000;
+      timerRef.current = setTimeout(()=> setIdx(i=> (i+1)%layers.length), d);
+      return ()=> clearTimeout(timerRef.current);
+    }
+    // for video with duration override
+    if(cur.type==='video' && cur.duration && cur.duration>0){
+      timerRef.current = setTimeout(()=> setIdx(i=> (i+1)%layers.length), cur.duration*1000);
+      return ()=> clearTimeout(timerRef.current);
+    }
+    // otherwise rely on onEnded
+  }, [cur, layers.length, idx]);
+
+  if(!hero.isActive || layers.length===0) return null;
+
+  const handleVideoEnded = () => {
+    if(layers.length>1) setIdx(i=> (i+1)%layers.length);
+  };
+
   return (
     <section className="relative w-full overflow-hidden bg-neutral-100">
-      {hero.type==='video' ? (
-        <video src={hero.src} poster={hero.poster} autoPlay loop muted playsInline className="w-full h-[58vh] sm:h-[64vh] lg:h-[72vh] object-cover" />
-      ) : (
-        <img src={hero.src} alt={hero.title} className="w-full h-[58vh] sm:h-[64vh] lg:h-[72vh] object-cover" />
-      )}
+      {/* Media layers - only current visible */}
+      <div className="w-full h-[58vh] sm:h-[64vh] lg:h-[72vh] relative">
+        {layers.map((layer, i)=>(
+          <div key={layer.id} className={`absolute inset-0 transition-opacity duration-700 ${i===idx ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            {layer.type==='video' ? (
+              <video
+                src={layer.src}
+                poster={layer.poster}
+                autoPlay={i===idx}
+                muted
+                playsInline
+                loop={false}
+                onEnded={handleVideoEnded}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img src={layer.src} alt={hero.title} className="w-full h-full object-cover" />
+            )}
+          </div>
+        ))}
+      </div>
+
       <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlay})`}} />
       <div className={`absolute inset-0 flex items-center ${hero.alignment==='center' ? 'justify-center text-center' : hero.alignment==='right' ? 'justify-end text-right pr-6 sm:pr-12' : 'justify-start pl-6 sm:pl-12'}`}>
         <div className="max-w-xl p-6 sm:p-8">
@@ -22,6 +74,13 @@ export default function Hero(){
             <Link href={hero.ctaLink} className="inline-block mt-5 bg-white text-black px-7 py-3 text-xs font-black tracking-widest hover:bg-black hover:text-white transition">
               {hero.ctaLabel}
             </Link>
+          )}
+          {layers.length>1 && (
+            <div className="flex gap-1.5 mt-4 justify-center lg:justify-start">
+              {layers.map((_,i)=>(
+                <button key={i} onClick={()=>setIdx(i)} className={`h-1.5 transition-all ${i===idx ? 'w-6 bg-white' : 'w-1.5 bg-white/50'}`} aria-label={`Go to slide ${i+1}`} />
+              ))}
+            </div>
           )}
         </div>
       </div>

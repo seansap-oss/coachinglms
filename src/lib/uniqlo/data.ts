@@ -1,4 +1,4 @@
-import type { UniqloCategory, UniqloProduct, HeroSection, TickerConfig, Coupon, UniqloSectionImage } from './types';
+import type { UniqloCategory, UniqloProduct, HeroSection, HeroLayer, TickerConfig, Coupon, UniqloSectionImage } from './types';
 
 export const DEFAULT_CATEGORIES: UniqloCategory[] = [
   { id:'cat_outer', slug:'outerwear', name:'Outerwear', gender:'UNISEX', image:'https://images.unsplash.com/photo-1548126032-079a0fb0099d?w=600', sortOrder:1, isActive:true },
@@ -56,6 +56,12 @@ export const DEFAULT_HERO: HeroSection = {
   overlayOpacity:0.35,
   isActive:true,
 };
+
+export const DEFAULT_HERO_LAYERS: HeroLayer[] = [
+  { id:'hl_1', type:'image', src:'https://images.unsplash.com/photo-1445205170230-053b83016050?w=1600', duration:5, enabled:true, sortOrder:1 },
+  { id:'hl_2', type:'video', src:'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', poster:'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1600', duration:0, enabled:true, sortOrder:2 },
+  { id:'hl_3', type:'image', src:'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1600', duration:5, enabled:true, sortOrder:3 },
+];
 
 export const DEFAULT_TICKER: TickerConfig = {
   enabled:true,

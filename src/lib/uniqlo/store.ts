@@ -1,13 +1,14 @@
 'use client';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { UniqloProduct, UniqloCategory, HeroSection, TickerConfig, Coupon, UniqloCartItem, UniqloOrder, UniqloSectionImage } from './types';
-import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, DEFAULT_HERO, DEFAULT_TICKER, DEFAULT_COUPONS, DEFAULT_SECTION_IMAGES } from './data';
+import type { UniqloProduct, UniqloCategory, HeroSection, HeroLayer, TickerConfig, Coupon, UniqloCartItem, UniqloOrder, UniqloSectionImage } from './types';
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, DEFAULT_HERO, DEFAULT_HERO_LAYERS, DEFAULT_TICKER, DEFAULT_COUPONS, DEFAULT_SECTION_IMAGES } from './data';
 
 interface UniqloStore {
   products: UniqloProduct[];
   categories: UniqloCategory[];
   hero: HeroSection;
+  heroLayers: HeroLayer[];
   ticker: TickerConfig;
   coupons: Coupon[];
   sections: UniqloSectionImage[];
@@ -28,6 +29,12 @@ interface UniqloStore {
   // hero/ticker
   updateHero: (patch: Partial<HeroSection>) => void;
   updateTicker: (patch: Partial<TickerConfig>) => void;
+  // hero layers (playlist)
+  setHeroLayers: (layers: HeroLayer[]) => void;
+  addHeroLayer: (layer: HeroLayer) => void;
+  updateHeroLayer: (id: string, patch: Partial<HeroLayer>) => void;
+  deleteHeroLayer: (id: string) => void;
+  reorderHeroLayers: (fromIndex: number, toIndex: number) => void;
   // coupons
   setCoupons: (c: Coupon[]) => void;
   addCoupon: (c: Coupon) => void;
@@ -53,6 +60,7 @@ export const useUniqloStore = create<UniqloStore>()(
       products: DEFAULT_PRODUCTS,
       categories: DEFAULT_CATEGORIES,
       hero: DEFAULT_HERO,
+      heroLayers: DEFAULT_HERO_LAYERS,
       ticker: DEFAULT_TICKER,
       coupons: DEFAULT_COUPONS,
       sections: DEFAULT_SECTION_IMAGES,
@@ -73,6 +81,16 @@ export const useUniqloStore = create<UniqloStore>()(
 
       updateHero: (patch)=> set((s)=>({ hero:{...s.hero, ...patch}})),
       updateTicker: (patch)=> set((s)=>({ ticker:{...s.ticker, ...patch}})),
+      setHeroLayers: (layers)=> set({ heroLayers: layers }),
+      addHeroLayer: (layer)=> set((s)=>({ heroLayers: [...s.heroLayers, layer].sort((a,b)=>a.sortOrder-b.sortOrder)})),
+      updateHeroLayer: (id,patch)=> set((s)=>({ heroLayers: s.heroLayers.map(l=> l.id===id ? {...l, ...patch} : l)})),
+      deleteHeroLayer: (id)=> set((s)=>({ heroLayers: s.heroLayers.filter(l=>l.id!==id)})),
+      reorderHeroLayers: (fromIndex,toIndex)=> set((s)=>{
+        const layers=[...s.heroLayers].sort((a,b)=>a.sortOrder-b.sortOrder);
+        const [moved]=layers.splice(fromIndex,1);
+        layers.splice(toIndex,0,moved);
+        return { heroLayers: layers.map((l,i)=> ({...l, sortOrder:i+1})) };
+      }),
 
       setCoupons: (coupons)=> set({ coupons }),
       addCoupon: (c)=> set((s)=>({ coupons:[...s.coupons, c]})),
@@ -97,14 +115,13 @@ export const useUniqloStore = create<UniqloStore>()(
       toggleWishlist: (pid)=> set((s)=> ({ wishlist: s.wishlist.includes(pid) ? s.wishlist.filter(x=>x!==pid) : [...s.wishlist, pid]})),
     }),
     {
-      name:'planetfashion-store-v2',
+      name:'planetfashion-store-v3',
       storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : undefined as any),
       skipHydration: false,
-      partialize: (s)=> ({ products:s.products, categories:s.categories, hero:s.hero, ticker:s.ticker, coupons:s.coupons, sections:s.sections, cart:s.cart, orders:s.orders, wishlist:s.wishlist }),
-      version: 2,
+      partialize: (s)=> ({ products:s.products, categories:s.categories, hero:s.hero, heroLayers:s.heroLayers, ticker:s.ticker, coupons:s.coupons, sections:s.sections, cart:s.cart, orders:s.orders, wishlist:s.wishlist }),
+      version: 3,
       migrate: (persisted: any, version: number) => {
-        // Force fresh if old version
-        if (version !== 2) return undefined as any;
+        if (version < 3) return undefined as any;
         return persisted;
       },
     }

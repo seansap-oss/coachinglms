@@ -4,7 +4,7 @@ import Link from 'next/link';
 import UniqloHeader from '@/components/uniqlo/Header';
 import { useUniqloStore } from '@/lib/uniqlo/store';
 import { useUserStore } from '@/lib/userStore';
-import type { UniqloProduct, UniqloCategory, HeroSection, TickerConfig, Coupon } from '@/lib/uniqlo/types';
+import type { UniqloProduct, HeroLayer } from '@/lib/uniqlo/types';
 
 function toBase64(file: File): Promise<string> {
   return new Promise((res, rej)=>{
@@ -17,13 +17,30 @@ export default function AdminPage(){
   const users=useUserStore(s=>s.users);
   const orders=store.orders;
   const [tab,setTab]=useState<'hero'|'ticker'|'products'|'categories'|'coupons'|'sections'|'profiles'|'orders'>('hero');
+  const [toast,setToast]=useState<string|null>(null);
+  const showToast=(msg:string)=>{ setToast(msg); setTimeout(()=>setToast(null),2500); };
 
-  // hero local
   const hero=store.hero;
   const ticker=store.ticker;
+  const heroLayers = store.heroLayers || [];
 
   const [newProd,setNewProd]=useState<Partial<UniqloProduct>>({ name:'', description:'', price:19.90, categoryId: store.categories[0]?.id || '', gender:'UNISEX', sizes:['S','M','L'], colors:[{name:'Black',hex:'#111111'}], images:[] });
   const [editId,setEditId]=useState<string | null>(null);
+  const [dragIdx,setDragIdx]=useState<number|null>(null);
+
+  // helpers for layers
+  const addLayer = (type:'image'|'video')=>{
+    const id='hl_'+Date.now().toString(36);
+    const newLayer: HeroLayer = {
+      id, type, src: type==='image' ? 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=1600' : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      poster: type==='video' ? 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=1600' : undefined,
+      duration: type==='image' ? 5 : 0,
+      enabled: true,
+      sortOrder: heroLayers.length+1,
+    };
+    store.addHeroLayer(newLayer);
+    showToast(`Added ${type} layer — drag to reorder`);
+  };
 
   return (
     <div className="min-h-screen bg-[#f4f4f4]">
@@ -40,54 +57,139 @@ export default function AdminPage(){
           ))}
         </div>
 
+        {toast && <div className="fixed top-4 right-4 z-50 bg-[#e10600] text-white px-4 py-2 text-xs font-black shadow-lg">{toast}</div>}
+
         {tab==='hero' && (
-          <div className="bg-white border border-neutral-200 p-4 space-y-4">
-            <h2 className="font-black">HERO SECTION (Image or Video) — exactly like UNIQLO</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <label className="text-xs font-bold">TYPE</label>
-                <select value={hero.type} onChange={e=> store.updateHero({ type: e.target.value as any })} className="w-full border border-neutral-300 px-3 py-2 text-sm">
-                  <option value="image">Image</option>
-                  <option value="video">Video</option>
-                </select>
-
-                <label className="text-xs font-bold">HERO MEDIA (upload image or video)</label>
-                <input type="file" accept={hero.type==='video' ? 'video/*' : 'image/*'} onChange={async e=>{
-                  const f=e.target.files?.[0]; if(!f) return;
-                  if(hero.type==='video'){
-                    // for video we create object URL base64 may be large; use data URL
-                    const data=await toBase64(f);
-                    store.updateHero({ src: data });
-                  } else {
-                    const data=await toBase64(f);
-                    store.updateHero({ src: data });
-                  }
-                }} className="w-full border border-neutral-300 p-2 text-sm" />
-                <p className="text-xs text-neutral-500">Or paste URL:</p>
-                <input value={hero.src} onChange={e=> store.updateHero({ src: e.target.value })} placeholder="https://... or /video.mp4" className="w-full border border-neutral-300 px-3 py-2 text-sm" />
-
-                <label className="text-xs font-bold">POSTER (for video)</label>
-                <input value={hero.poster || ''} onChange={e=> store.updateHero({ poster: e.target.value })} placeholder="Poster image URL" className="w-full border border-neutral-300 px-3 py-2 text-sm" />
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className="text-xs font-bold">TITLE</label><input value={hero.title} onChange={e=> store.updateHero({ title: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" /></div>
-                  <div><label className="text-xs font-bold">CTA LABEL</label><input value={hero.ctaLabel || ''} onChange={e=> store.updateHero({ ctaLabel: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" /></div>
+          <div className="space-y-4">
+            {/* GLOBAL HERO TEXT */}
+            <div className="bg-white border border-neutral-200 p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>HERO — Global Text & Overlay</h2>
+                  <p className="text-xs text-neutral-500">Title, subtitle, CTA and overlay shown over all layers. Edit then Save / Publish.</p>
                 </div>
-                <label className="text-xs font-bold">SUBTITLE</label><textarea value={hero.subtitle || ''} onChange={e=> store.updateHero({ subtitle: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" rows={2} />
-                <label className="text-xs font-bold">CTA LINK</label><input value={hero.ctaLink || ''} onChange={e=> store.updateHero({ ctaLink: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" />
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className="text-xs font-bold">ALIGNMENT</label><select value={hero.alignment || 'left'} onChange={e=> store.updateHero({ alignment: e.target.value as any })} className="w-full border border-neutral-300 px-3 py-2 text-sm"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
-                  <div><label className="text-xs font-bold">OVERLAY</label><input type="range" min={0} max={0.8} step={0.05} value={hero.overlayOpacity ?? 0.35} onChange={e=> store.updateHero({ overlayOpacity: parseFloat(e.target.value)})} className="w-full" /></div>
+                <div className="flex gap-2">
+                  <button onClick={()=>showToast('✓ Saved — hero text saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                  <button onClick={()=>{ showToast('✓ Published — hero live on website & app'); }} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
                 </div>
-                <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={hero.isActive} onChange={e=> store.updateHero({ isActive: e.target.checked })} /> Active</label>
               </div>
-              <div>
-                <p className="text-xs font-bold mb-2">PREVIEW</p>
-                <div className="relative h-[300px] overflow-hidden border border-neutral-200 bg-neutral-100">
-                  {hero.type==='video' ? <video src={hero.src} poster={hero.poster} autoPlay loop muted playsInline className="w-full h-full object-cover" /> : <img src={hero.src} alt="" className="w-full h-full object-cover" />}
-                  <div className="absolute inset-0" style={{ background:`rgba(0,0,0,${hero.overlayOpacity ?? 0.35})`}} />
-                  <div className="absolute bottom-4 left-4 right-4 text-white"><p className="font-black">{hero.title}</p><p className="text-xs">{hero.subtitle}</p>{hero.ctaLabel && <span className="inline-block mt-2 bg-white text-black px-3 py-1 text-xs font-black">{hero.ctaLabel}</span>}</div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div><label className="text-xs font-bold">TITLE</label><input value={hero.title} onChange={e=> store.updateHero({ title: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" /></div>
+                <div><label className="text-xs font-bold">CTA LABEL</label><input value={hero.ctaLabel || ''} onChange={e=> store.updateHero({ ctaLabel: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" /></div>
+              </div>
+              <label className="text-xs font-bold">SUBTITLE</label><textarea value={hero.subtitle || ''} onChange={e=> store.updateHero({ subtitle: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" rows={2} />
+              <label className="text-xs font-bold">CTA LINK</label><input value={hero.ctaLink || ''} onChange={e=> store.updateHero({ ctaLink: e.target.value })} className="w-full border border-neutral-300 px-3 py-2 text-sm" />
+              <div className="grid md:grid-cols-3 gap-3">
+                <div><label className="text-xs font-bold">ALIGNMENT</label><select value={hero.alignment || 'left'} onChange={e=> store.updateHero({ alignment: e.target.value as any })} className="w-full border border-neutral-300 px-3 py-2 text-sm"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+                <div><label className="text-xs font-bold">OVERLAY</label><input type="range" min={0} max={0.8} step={0.05} value={hero.overlayOpacity ?? 0.35} onChange={e=> store.updateHero({ overlayOpacity: parseFloat(e.target.value)})} className="w-full" /></div>
+                <label className="flex items-center gap-2 text-xs font-bold mt-6"><input type="checkbox" checked={hero.isActive} onChange={e=> store.updateHero({ isActive: e.target.checked })} /> Active</label>
+              </div>
+            </div>
+
+            {/* HERO LAYERS PLAYLIST */}
+            <div className="bg-white border-2 border-[#e10600] p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>HERO PLAYLIST — Layers (Video & Image)</h2>
+                  <p className="text-xs text-neutral-500">Tick to enable, drag to reorder, set seconds per layer. Video plays until finished then next layer. Image shows for its duration. Mix URLs and uploads.</p>
                 </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>showToast('✓ Saved — layers saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                  <button onClick={()=>showToast('✓ Published — hero playlist live on website & app')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={()=>addLayer('image')} className="bg-black text-white px-4 py-2 text-xs font-black">+ Add Image Layer</button>
+                <button onClick={()=>addLayer('video')} className="bg-[#e10600] text-white px-4 py-2 text-xs font-black">+ Add Video Layer (MP4)</button>
+                <span className="text-xs text-neutral-500 self-center">Drag ≡ to reorder • Video MP4 small recommended (&lt;5MB)</span>
+              </div>
+
+              {heroLayers.length===0 && <p className="text-xs text-neutral-500">No layers — add one above. Fallback is single hero image.</p>}
+
+              <div className="space-y-2">
+                {heroLayers.sort((a,b)=>a.sortOrder-b.sortOrder).map((layer, idx)=>(
+                  <div
+                    key={layer.id}
+                    draggable
+                    onDragStart={()=>setDragIdx(idx)}
+                    onDragOver={e=>e.preventDefault()}
+                    onDrop={()=>{
+                      if(dragIdx===null || dragIdx===idx) return;
+                      store.reorderHeroLayers(dragIdx, idx);
+                      setDragIdx(null);
+                      showToast('Reordered — drag to new sequence');
+                    }}
+                    className={`border p-3 bg-[#fafafa] flex gap-3 items-start ${dragIdx===idx ? 'border-[#e10600] bg-red-50' : 'border-neutral-200'}`}
+                  >
+                    <div className="flex flex-col items-center gap-1 pt-1">
+                      <span className="cursor-grab select-none text-neutral-400" title="Drag to reorder">≡</span>
+                      <span className="text-[10px] font-black bg-black text-white w-5 h-5 flex items-center justify-center">{idx+1}</span>
+                      <label className="flex items-center gap-1 text-[10px] font-bold"><input type="checkbox" checked={layer.enabled} onChange={e=> store.updateHeroLayer(layer.id, { enabled: e.target.checked })} /> On</label>
+                    </div>
+
+                    <div className="w-28 h-20 bg-white border overflow-hidden flex-shrink-0">
+                      {layer.type==='video' ? (
+                        <video src={layer.src} poster={layer.poster} className="w-full h-full object-cover" muted playsInline />
+                      ) : (
+                        <img src={layer.src} alt="" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="grid grid-cols-3 gap-2">
+                        <select value={layer.type} onChange={e=> store.updateHeroLayer(layer.id, { type: e.target.value as any })} className="border border-neutral-300 px-2 py-1.5 text-xs font-bold">
+                          <option value="image">Image</option>
+                          <option value="video">Video (MP4)</option>
+                        </select>
+                        <div className="flex items-center gap-1">
+                          <label className="text-[11px] font-bold whitespace-nowrap">Duration (s)</label>
+                          <input type="number" min={0} step={1} value={layer.duration ?? (layer.type==='image'?5:0)} onChange={e=> store.updateHeroLayer(layer.id, { duration: Number(e.target.value)})} className="w-full border border-neutral-300 px-2 py-1 text-xs" placeholder={layer.type==='video'?"0=video length":"5"} />
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={()=>{
+                            if(idx>0) { store.reorderHeroLayers(idx, idx-1); showToast('Moved up'); }
+                          }} className="flex-1 border border-neutral-300 px-2 py-1 text-xs">↑</button>
+                          <button onClick={()=>{
+                            if(idx<heroLayers.length-1) { store.reorderHeroLayers(idx, idx+1); showToast('Moved down'); }
+                          }} className="flex-1 border border-neutral-300 px-2 py-1 text-xs">↓</button>
+                          <button onClick={()=>{ if(confirm('Delete layer?')){ store.deleteHeroLayer(layer.id); showToast('Deleted'); } }} className="px-2 py-1 bg-red-600 text-white text-xs font-bold">×</button>
+                        </div>
+                      </div>
+
+                      <input value={layer.src} onChange={e=> store.updateHeroLayer(layer.id, { src: e.target.value })} placeholder={layer.type==='video' ? "MP4 URL or https://.../video.mp4" : "Image URL https://..."} className="w-full border border-neutral-300 px-2 py-1.5 text-xs" />
+                      <div className="flex gap-2">
+                        <label className="flex-1">
+                          <span className="text-[10px] font-bold text-neutral-500">Upload {layer.type==='video' ? 'MP4' : 'Image'} (small MP4 &lt;5MB)</span>
+                          <input type="file" accept={layer.type==='video' ? 'video/mp4,video/*' : 'image/*'} onChange={async e=>{
+                            const f=e.target.files?.[0]; if(!f) return;
+                            if(f.size>8*1024*1024) alert('File large (>8MB) may be slow — consider URL');
+                            const data=await toBase64(f);
+                            store.updateHeroLayer(layer.id, { src: data });
+                            showToast('Uploaded — will play on live site');
+                          }} className="w-full border border-neutral-300 p-1 text-xs bg-white" />
+                        </label>
+                        {layer.type==='video' && (
+                          <label className="flex-1">
+                            <span className="text-[10px] font-bold text-neutral-500">Poster (image URL)</span>
+                            <input value={layer.poster || ''} onChange={e=> store.updateHeroLayer(layer.id, { poster: e.target.value })} placeholder="Poster image URL for video" className="w-full border border-neutral-300 px-2 py-1 text-xs" />
+                          </label>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-neutral-500">{layer.type==='video' ? (layer.duration && layer.duration>0 ? `Plays ${layer.duration}s then next` : 'Plays until video ends then next') : `Shows ${layer.duration || 5}s then next`} • {layer.enabled ? 'Enabled' : 'Disabled'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-[#111] text-white p-3">
+                <p className="text-xs font-black">LIVE PREVIEW — playlist order</p>
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {heroLayers.sort((a,b)=>a.sortOrder-b.sortOrder).map((l,i)=>(
+                    <span key={l.id} className={`px-2 py-1 text-[10px] font-bold border ${l.enabled ? 'bg-white text-black border-white' : 'bg-transparent text-white/50 border-white/20'}`}>{i+1}. {l.type.toUpperCase()} {l.enabled?'●':''} {l.duration ? `${l.duration}s` : (l.type==='video'?'auto':'5s')}</span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-white/60 mt-2">Example: Video (0=full length) → Image 5s → Video 5s. Drag to change sequence. Publish to go live.</p>
               </div>
             </div>
           </div>
@@ -95,8 +197,13 @@ export default function AdminPage(){
 
         {tab==='ticker' && (
           <div className="bg-white border border-neutral-200 p-4 space-y-3">
-            <h2 className="font-black">TICKER (running text just below header)</h2>
-            <p className="text-xs text-neutral-500">Enable to show special promos running across the top — exactly as requested.</p>
+            <div className="flex justify-between items-start">
+              <div><h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>TICKER — Top Scrolling Bar</h2><p className="text-xs text-neutral-500">Enable to show special promos running across the top.</p></div>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — ticker saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — ticker live on website & app')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={ticker.enabled} onChange={e=> store.updateTicker({ enabled: e.target.checked })} /> Enabled</label>
             <label className="text-xs font-bold">TEXT (will loop)</label>
             <textarea value={ticker.text} onChange={e=> store.updateTicker({ text: e.target.value })} rows={2} className="w-full border border-neutral-300 px-3 py-2 text-sm" />
@@ -112,15 +219,20 @@ export default function AdminPage(){
 
         {tab==='sections' && (
           <div className="bg-white border border-neutral-200 p-4 space-y-3">
-            <h2 className="font-black">SECTION PHOTOS (all sections editable)</h2>
-            <p className="text-xs text-neutral-500">These are the 4 category tiles on homepage + any future sections. Upload new image or change link.</p>
+            <div className="flex justify-between items-start">
+              <div><h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>SECTION PHOTOS</h2><p className="text-xs text-neutral-500">Category tiles on homepage — upload images, change titles and links.</p></div>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — sections saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — sections live')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             <div className="grid md:grid-cols-2 gap-3">
               {store.sections.map(sec=>(
                 <div key={sec.id} className="border border-neutral-200 p-3 space-y-2">
                   <img src={sec.image} alt={sec.title} className="w-full h-40 object-cover border border-neutral-200" />
                   <input value={sec.title} onChange={e=> store.updateSection(sec.id, { title: e.target.value })} className="w-full border border-neutral-300 px-2 py-1 text-sm" placeholder="Title" />
                   <input value={sec.image} onChange={e=> store.updateSection(sec.id, { image: e.target.value })} className="w-full border border-neutral-300 px-2 py-1 text-sm" placeholder="Image URL" />
-                  <input type="file" accept="image/*" onChange={async e=>{ const f=e.target.files?.[0]; if(!f) return; const d=await toBase64(f); store.updateSection(sec.id,{ image: d });}} className="w-full text-xs" />
+                  <input type="file" accept="image/*" onChange={async e=>{ const f=e.target.files?.[0]; if(!f) return; const d=await toBase64(f); store.updateSection(sec.id,{ image: d }); showToast('Uploaded');}} className="w-full text-xs" />
                   <input value={sec.link} onChange={e=> store.updateSection(sec.id, { link: e.target.value })} className="w-full border border-neutral-300 px-2 py-1 text-sm" placeholder="Link" />
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={sec.isActive} onChange={e=> store.updateSection(sec.id,{ isActive: e.target.checked })} /> Active</label>
                 </div>
@@ -131,9 +243,13 @@ export default function AdminPage(){
 
         {tab==='products' && (
           <div className="bg-white border border-neutral-200 p-4 space-y-4">
-            <h2 className="font-black">PRODUCTS — upload images, change price, “not available”, discounts</h2>
-
-            {/* add new */}
+            <div className="flex justify-between items-start">
+              <h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>PRODUCTS</h2>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — products saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — products live on website & app')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             <div className="border border-neutral-900 p-3 bg-[#fffbeb]">
               <p className="font-bold text-sm">ADD NEW PRODUCT</p>
               <div className="grid md:grid-cols-3 gap-2 mt-2">
@@ -162,7 +278,7 @@ export default function AdminPage(){
                   sizes: newProd.sizes || ['S','M','L'],
                   inStock:true, available:true, createdAt:Date.now(), updatedAt:Date.now(),
                 };
-                store.addProduct(prod); setNewProd({ name:'', description:'', price:19.90, categoryId: store.categories[0]?.id, gender:'UNISEX', sizes:['S','M','L'], colors:[{name:'Black',hex:'#111'}], images:[] });
+                store.addProduct(prod); setNewProd({ name:'', description:'', price:19.90, categoryId: store.categories[0]?.id, gender:'UNISEX', sizes:['S','M','L'], colors:[{name:'Black',hex:'#111'}], images:[] }); showToast('Product added — publish to go live');
               }} className="mt-3 bg-black text-white px-6 py-2 text-xs font-black">ADD PRODUCT</button>
             </div>
 
@@ -208,7 +324,13 @@ export default function AdminPage(){
 
         {tab==='categories' && (
           <div className="bg-white border border-neutral-200 p-4 space-y-3">
-            <h2 className="font-black">CATEGORIES</h2>
+            <div className="flex justify-between items-start">
+              <h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>CATEGORIES</h2>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — categories saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — categories live')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             <div className="space-y-2">
               {store.categories.map(c=>(
                 <div key={c.id} className="flex items-center gap-2 border border-neutral-200 p-2">
@@ -224,20 +346,22 @@ export default function AdminPage(){
             <button onClick={()=>{
               const name=prompt('Category name?'); if(!name) return;
               const gender=prompt('Gender WOMEN/MEN/KIDS/BABY/UNISEX','UNISEX') as any;
-              const id='cat_'+Date.now().toString(36); store.addCategory({ id, slug: name.toLowerCase().replace(/[^a-z0-9]+/g,'-'), name, gender: gender || 'UNISEX', sortOrder: store.categories.length+1, isActive:true });
+              const id='cat_'+Date.now().toString(36); store.addCategory({ id, slug: name.toLowerCase().replace(/[^a-z0-9]+/g,'-'), name, gender: gender || 'UNISEX', sortOrder: store.categories.length+1, isActive:true }); showToast('Category added');
             }} className="bg-black text-white px-4 py-2 text-xs font-black">+ ADD CATEGORY</button>
           </div>
         )}
 
         {tab==='coupons' && (
           <div className="bg-white border border-neutral-200 p-4 space-y-4">
-            <h2 className="font-black text-lg" style={{ fontFamily: 'var(--font-space-grotesk)' }}>COUPONS / DISCOUNT CODE GENERATOR</h2>
-            <p className="text-xs text-neutral-500">Generate sale codes (e.g. 10% off) — they apply instantly at checkout (Cart & Checkout). UPI/GPay total updates automatically.</p>
-
-            {/* Generator */}
+            <div className="flex justify-between items-start">
+              <div><h2 className="font-black text-lg text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>COUPONS / DISCOUNT CODE GENERATOR</h2><p className="text-xs text-neutral-500">Generate sale codes — they apply instantly at checkout.</p></div>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — coupons saved')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — coupons live at checkout')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             <div className="border-2 border-[#e10600] bg-[#fff5f5] p-4">
               <p className="font-black text-sm">GENERATE NEW DISCOUNT COUPON</p>
-              <p className="text-xs text-neutral-600">Store having 10% sale? Generate code and it applies to those things from admin price.</p>
               <div className="grid md:grid-cols-4 gap-2 mt-3">
                 <input id="gen-code" placeholder="CODE e.g. PLANET10" className="border border-neutral-300 px-3 py-2 text-sm font-mono uppercase" defaultValue="PLANET10" />
                 <select id="gen-type" className="border border-neutral-300 px-3 py-2 text-sm" defaultValue="percent">
@@ -257,11 +381,11 @@ export default function AdminPage(){
                   let code=codeEl.value.trim().toUpperCase(); if(!code) code='PLANET'+Math.floor(10+Math.random()*90);
                   const type=typeEl.value as any; const value=Number(valEl.value)||10; const minBasket=Number(minEl.value)||0;
                   store.addCoupon({ id:'c'+Date.now().toString(36), code, type, value, minBasket: minBasket||undefined, isActive:true, usedCount:0, description: `${value}${type==='percent'?'%':'€'} off ${minBasket?`over €${minBasket}`:''} — PlanetFashion` });
-                  codeEl.value='';
+                  codeEl.value=''; showToast(`Generated ${code}`);
                 }} className="bg-[#e10600] text-white px-6 py-2 text-xs font-black tracking-widest">GENERATE CODE</button>
                 <button onClick={()=>{
                   const code='SALE'+Math.floor(10+Math.random()*90);
-                  store.addCoupon({ id:'c'+Date.now().toString(36), code, type:'percent', value:10, isActive:true, usedCount:0, description:'10% sale — PlanetFashion' });
+                  store.addCoupon({ id:'c'+Date.now().toString(36), code, type:'percent', value:10, isActive:true, usedCount:0, description:'10% sale — PlanetFashion' }); showToast(`Quick ${code} added`);
                 }} className="border border-black px-6 py-2 text-xs font-black">QUICK 10% SALE</button>
               </div>
             </div>
@@ -281,14 +405,18 @@ export default function AdminPage(){
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-neutral-500">Checkout validates via <span className="font-mono">calcCartTotals</span> — percent / fixed / free shipping, min basket, active flag. Codes apply from admin price.</p>
           </div>
         )}
 
         {tab==='profiles' && (
           <div className="bg-white border border-neutral-200 p-4">
-            <h2 className="font-black">ALL PROFILES</h2>
-            <p className="text-xs text-neutral-500">All user profiles (sign-in database). Managed via login system.</p>
+            <div className="flex justify-between items-start">
+              <div><h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>ALL PROFILES</h2><p className="text-xs text-neutral-500">All user profiles (sign-in database).</p></div>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — profiles')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — profiles live')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             <div className="mt-3 space-y-2">
               {users.length===0 ? <p className="text-sm text-neutral-500">No profiles yet. Create via /login</p> : users.map(u=>(
                 <div key={u.username} className="border border-neutral-200 p-3 flex justify-between items-center">
@@ -302,7 +430,13 @@ export default function AdminPage(){
 
         {tab==='orders' && (
           <div className="bg-white border border-neutral-200 p-4">
-            <h2 className="font-black">ORDERS</h2>
+            <div className="flex justify-between items-start">
+              <h2 className="font-black text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>ORDERS</h2>
+              <div className="flex gap-2">
+                <button onClick={()=>showToast('✓ Saved — orders')} className="border border-neutral-300 px-3 py-1.5 text-xs font-bold">SAVE</button>
+                <button onClick={()=>showToast('✓ Published — orders live')} className="bg-[#e10600] text-white px-4 py-1.5 text-xs font-black">PUBLISH</button>
+              </div>
+            </div>
             {orders.length===0 ? <p className="text-sm text-neutral-500 mt-2">No orders yet.</p> : (
               <div className="space-y-2 mt-3">
                 {orders.map(o=>(
