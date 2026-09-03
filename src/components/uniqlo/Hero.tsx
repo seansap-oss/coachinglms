@@ -72,13 +72,14 @@ export default function Hero(){
                 src={layer.src}
                 poster={layer.poster}
                 muted
+                autoPlay
                 playsInline
-                preload="metadata"
+                preload="auto"
                 loop={false}
+                controls
                 onEnded={handleVideoEnded}
                 onError={handleVideoError}
-                className="w-full h-full object-cover"
-                controls={false}
+                className="w-full h-full object-cover bg-black"
               />
             ) : (
               <img
