@@ -29,9 +29,9 @@ export default function AdminPage(){
     <div className="min-h-screen bg-[#f4f4f4]">
       <UniqloHeader />
       <div className="max-w-[1420px] mx-auto px-3 sm:px-4 py-4">
-        <div className="bg-[#e10600] text-white p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white text-[#e10600] flex flex-col items-center justify-center leading-none"><span className="font-black text-[14px]">PF</span><span className="font-bold text-[6px] tracking-widest">PLANET</span></div><div><h1 className="font-black text-lg" style={{ fontFamily: 'var(--font-space-grotesk)' }}>PlanetFashion ADMIN</h1><p className="text-xs text-white/90">Hero video/image • Ticker • Sections • Products (price, “not available”, images) • Coupons • Profiles • Orders — UPI/GPay ready.</p></div></div>
-          <Link href="/" className="bg-white text-[#e10600] px-4 py-2 text-xs font-black">VIEW STORE</Link>
+        <div className="bg-white border-2 border-[#e10600] p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3"><div className="w-10 h-10 bg-[#e10600] text-white flex flex-col items-center justify-center leading-none shadow-sm"><span className="font-black text-[14px]">PF</span><span className="font-bold text-[6px] tracking-widest">PLANET</span></div><div><h1 className="font-black text-lg text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>Planet fashion — Admin CMS</h1><p className="text-xs text-neutral-500">Hero video/image • Ticker • Sections • Products (price, “not available”, images) • Coupons • Profiles • Orders — UPI/GPay ready.</p></div></div>
+          <Link href="/" className="bg-[#e10600] text-white px-4 py-2 text-xs font-black">VIEW STORE</Link>
         </div>
 
         <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">

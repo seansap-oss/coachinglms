@@ -32,8 +32,8 @@ export default function UniqloHeader(){
             <span className="text-white/90 font-bold text-[6px] tracking-[0.18em] -mt-0.5">PLANET</span>
           </div>
           <div className="hidden sm:block leading-none">
-            <span className="block text-[20px] font-black tracking-tighter" style={{ fontFamily: 'var(--font-space-grotesk), sans-serif' }}>PlanetFashion</span>
-            <span className="block text-[9px] tracking-[0.18em] font-bold text-neutral-500 -mt-1">WEAR YOUR PLANET</span>
+            <span className="block text-[20px] font-black tracking-tighter text-[#e10600]" style={{ fontFamily: 'var(--font-space-grotesk), sans-serif' }}>Planet fashion</span>
+            <span className="block text-[9px] tracking-[0.18em] font-bold text-[#e10600]/70 -mt-1">WEAR YOUR PLANET</span>
           </div>
         </Link>
 
