@@ -1,9 +1,8 @@
-import LmsHeader from '@/components/lms/LmsHeader';
+import LmsShell from '@/components/lms/LmsShell';
 export default function LmsLayout({ children }: { children: React.ReactNode }){
   return (
-    <div suppressHydrationWarning className="min-h-screen bg-[#f8fafc] flex flex-col">
-      <LmsHeader />
-      <div className="flex-1">{children}</div>
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+      <LmsShell>{children}</LmsShell>
       <footer className="bg-[#0f172a] text-white mt-10">
         <div className="max-w-[1400px] mx-auto px-4 py-10 grid md:grid-cols-4 gap-8 text-sm">
           <div>

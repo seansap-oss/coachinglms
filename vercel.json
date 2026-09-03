@@ -1,5 +1,4 @@
 {
   "framework": "nextjs",
-  "trailingSlash": false,
-  "rootDirectory": "cafe-ui"
+  "trailingSlash": false
 }
