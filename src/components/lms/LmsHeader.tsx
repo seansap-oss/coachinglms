@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLmsStore } from '@/lib/lms/store';
 import { Search, Menu, X, ShoppingCart, Bell, BookOpen, Video, LayoutDashboard, Shield, LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function LmsHeader(){
   const currentUser = useLmsStore(s=>s.currentUser);
@@ -25,7 +25,7 @@ export default function LmsHeader(){
   const isActive = (p:string)=> pathname===p || pathname.startsWith(p+'/');
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200/70">
+    <header suppressHydrationWarning className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200/70">
       {/* top utility bar */}
       <div className="hidden lg:flex bg-[#0f172a] text-white text-[11px] tracking-wide">
         <div className="max-w-[1400px] mx-auto w-full px-4 py-1.5 flex items-center justify-between">

@@ -1,16 +1,17 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Flame, Clock, BookOpen } from 'lucide-react';
 import { useLmsStore } from '@/lib/lms/store';
 
 export default function StudyCalendar(){
   const logs = useLmsStore(s=>s.studyLogs);
-  const [cursor, setCursor] = useState(new Date());
+  const [cursor, setCursor] = useState(()=>{ const d=new Date(); d.setDate(1); return d; });
+  const [todayStr, setTodayStr] = useState('');
+  useEffect(()=>{ setTodayStr(new Date().toISOString().slice(0,10)); },[]);
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month+1, 0).getDate();
-  const todayStr = new Date().toISOString().slice(0,10);
 
   const map = useMemo(()=>{
     const m = new Map<string, number>();
@@ -28,6 +29,7 @@ export default function StudyCalendar(){
   },[map, year, month, daysInMonth]);
 
   const streak = useMemo(()=>{
+    if(!map.size) return 0;
     let s=0;
     const d = new Date();
     while(true){
@@ -71,7 +73,7 @@ export default function StudyCalendar(){
           const d = i+1;
           const ds = new Date(year,month,d).toISOString().slice(0,10);
           const mins = map.get(ds)||0;
-          const isToday = ds===todayStr;
+          const isToday = todayStr && ds===todayStr;
           const intensity = mins===0 ? 'bg-neutral-50 border border-neutral-100 text-neutral-400' : mins<30 ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : mins<60 ? 'bg-emerald-100 border border-emerald-300 text-emerald-800' : 'bg-emerald-600 text-white border border-emerald-600';
           return (
             <div key={d} className={`h-9 sm:h-10 rounded-xl flex flex-col items-center justify-center text-xs font-bold relative ${intensity} ${isToday?'ring-2 ring-[#4338ca] ring-offset-1':''}`}>

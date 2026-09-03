@@ -45,33 +45,68 @@ interface LmsStore {
   updateLiveClass:(id:string, patch:Partial<LiveClass>)=>void;
 }
 
-const DEMO_USER: LmsUser = {
-  id:'u-student-1',
-  name:'Aarav Singh',
-  email:'aarav@abhyas.ias',
-  role:'student',
-  avatar:'https://i.pravatar.cc/150?img=11',
-  enrolledCourseIds:['c1','c5'],
-  createdAt: Date.now() - 1000*60*60*24*30,
+function buildDemoStudyLogs(): StudyLog[] {
+  const logs: StudyLog[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const isRestDay = i % 7 === 0;
+    logs.push({
+      date: dateStr,
+      minutes: isRestDay ? 0 : Math.floor(20 + Math.random() * 80),
+      lessonsCompleted: Math.floor(Math.random() * 3),
+    });
+  }
+  return logs;
+}
+
+function makeDefaultState() {
+  const now = Date.now();
+  const DAY = 1000 * 60 * 60 * 24;
+  const demoUser: LmsUser = {
+    id: 'u-student-1',
+    name: 'Aarav Singh',
+    email: 'aarav@abhyas.ias',
+    role: 'student',
+    avatar: 'https://i.pravatar.cc/150?img=11',
+    enrolledCourseIds: ['c1', 'c5'],
+    createdAt: now - DAY * 30,
+  };
+  return {
+    courses: DEMO_COURSES,
+    quizzes: DEMO_QUIZZES,
+    packages: PACKAGES,
+    liveClasses: DEMO_LIVE,
+    users: [
+      demoUser,
+      { id: 'u-teacher-1', name: 'Dr. Ibemhal Devi', email: 'teacher@abhyas.ias', role: 'teacher' as const, avatar: 'https://i.pravatar.cc/150?img=5', enrolledCourseIds: [], createdAt: now },
+      { id: 'u-admin-1', name: 'Admin', email: 'admin@abhyas.ias', role: 'admin' as const, avatar: 'https://i.pravatar.cc/150?img=8', enrolledCourseIds: [], createdAt: now },
+    ],
+    currentUser: demoUser,
+    enrollments: [
+      { userId: 'u-student-1', courseId: 'c1', progress: 38, completedLessonIds: ['l1', 'l4'], lastLessonId: 'l5', enrolledAt: now - DAY * 12 },
+      { userId: 'u-student-1', courseId: 'c5', progress: 72, completedLessonIds: ['l1'], lastLessonId: 'l1', enrolledAt: now - DAY * 5 },
+    ],
+    studyLogs: buildDemoStudyLogs(),
+  };
+}
+
+const EMPTY_STATE = {
+  courses: [] as Course[],
+  quizzes: [] as Quiz[],
+  packages: [] as Package[],
+  liveClasses: [] as LiveClass[],
+  users: [] as LmsUser[],
+  currentUser: null as LmsUser | null,
+  enrollments: [] as Enrollment[],
+  studyLogs: [] as StudyLog[],
 };
 
 export const useLmsStore = create<LmsStore>()(
   persist(
     (set,get)=>({
-      courses: DEMO_COURSES,
-      quizzes: DEMO_QUIZZES,
-      packages: PACKAGES,
-      liveClasses: DEMO_LIVE,
-      users: [DEMO_USER, {id:'u-teacher-1', name:'Dr. Ibemhal Devi', email:'teacher@abhyas.ias', role:'teacher', avatar:'https://i.pravatar.cc/150?img=5', enrolledCourseIds:[], createdAt: Date.now()}, {id:'u-admin-1', name:'Admin', email:'admin@abhyas.ias', role:'admin', avatar:'https://i.pravatar.cc/150?img=8', enrolledCourseIds:[], createdAt: Date.now()}],
-      currentUser: DEMO_USER,
-      enrollments: [
-        { userId:'u-student-1', courseId:'c1', progress:38, completedLessonIds:['l1','l4'], lastLessonId:'l5', enrolledAt: Date.now()-1000*60*60*24*12 },
-        { userId:'u-student-1', courseId:'c5', progress:72, completedLessonIds:['l1'], lastLessonId:'l1', enrolledAt: Date.now()-1000*60*60*24*5 },
-      ],
-      studyLogs: Array.from({length:30},(_,i)=>{
-        const d = new Date(); d.setDate(d.getDate()-i);
-        return { date: d.toISOString().slice(0,10), minutes: i%7===0?0: Math.floor(20+Math.random()*80), lessonsCompleted: Math.floor(Math.random()*3) };
-      }).reverse(),
+      ...EMPTY_STATE,
       _hydrated:false,
       setHydrated:(v)=>set({_hydrated:v}),
       login:(email, role)=>{
@@ -144,7 +179,25 @@ export const useLmsStore = create<LmsStore>()(
       }),
       partialize:(s)=>({
         courses:s.courses, quizzes:s.quizzes, packages:s.packages, liveClasses:s.liveClasses, users:s.users, currentUser:s.currentUser, enrollments:s.enrollments, studyLogs:s.studyLogs
-      })
+      }),
+      onRehydrateStorage:()=>(state)=>{
+        if(!state) return;
+        const defaults = makeDefaultState();
+        const hasData = state.courses && state.courses.length > 0;
+        if(!hasData){
+          state.setHydrated(true);
+          state.setCourses(defaults.courses);
+          state.setQuizzes(defaults.quizzes);
+          state.setPackages(defaults.packages);
+          state.liveClasses = defaults.liveClasses;
+          state.users = defaults.users;
+          state.currentUser = defaults.currentUser;
+          state.enrollments = defaults.enrollments;
+          state.studyLogs = defaults.studyLogs;
+        } else {
+          state.setHydrated(true);
+        }
+      }
     }
   )
 );

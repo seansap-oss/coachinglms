@@ -1,7 +1,7 @@
 import LmsHeader from '@/components/lms/LmsHeader';
 export default function LmsLayout({ children }: { children: React.ReactNode }){
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+    <div suppressHydrationWarning className="min-h-screen bg-[#f8fafc] flex flex-col">
       <LmsHeader />
       <div className="flex-1">{children}</div>
       <footer className="bg-[#0f172a] text-white mt-10">
